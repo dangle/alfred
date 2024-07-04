@@ -15,4 +15,4 @@ COPY . .
 
 RUN pdm install
 
-CMD [ "pdm", "run", "/app/src/alfred/main.py"]
+ENTRYPOINT [ "/app/run-bot.sh"]
