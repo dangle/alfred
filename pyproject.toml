@@ -20,4 +20,9 @@ distribution = false
 
 [tool.pdm.dev-dependencies]
 test = ["pytest>=8.2.2"]
-dev = ["bpython>=0.24", "mypy>=1.10.1", "ruff>=0.5.0"]
+dev = [
+    "bpython>=0.24",
+    "mypy>=1.10.1",
+    "pyment>=0.3.3",
+    "ruff>=0.5.0",
+]

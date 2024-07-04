@@ -5,7 +5,7 @@
 groups = ["default", "test", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.2"
-content_hash = "sha256:d6fcfe0bded00a31ede32db14f5ac4c8607bf607fe8534a5b36ddce71ea30d8a"
+content_hash = "sha256:707ddc25653389c4ed4aac349edb103397a4a445dfce0da9a6acda3819671113"
 
 [[package]]
 name = "aiodns"
@@ -734,6 +734,16 @@ groups = ["dev"]
 files = [
     {file = "pygments-2.18.0-py3-none-any.whl", hash = "sha256:b8e6aca0523f3ab76fee51799c488e38782ac06eafcf95e7ba832985c8e7b13a"},
     {file = "pygments-2.18.0.tar.gz", hash = "sha256:786ff802f32e91311bff3889f6e9a86e81505fe99f2735bb6d60ae0c5004f199"},
+]
+
+[[package]]
+name = "pyment"
+version = "0.3.3"
+summary = "Generate/convert automatically the docstrings from code signature"
+groups = ["dev"]
+files = [
+    {file = "Pyment-0.3.3-py2.py3-none-any.whl", hash = "sha256:a0c6ec59d06d24aeec3eaecb22115d0dc95d09e14209b2df838381fdf47a78cc"},
+    {file = "Pyment-0.3.3.tar.gz", hash = "sha256:951a4c52d6791ccec55bc739811169eed69917d3874f5fe722866623a697f39d"},
 ]
 
 [[package]]

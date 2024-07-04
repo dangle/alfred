@@ -40,21 +40,31 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "mads-hartmann.bash-ide-vscode",
-        "ms-python.black-formatter",
         "ms-azuretools.vscode-docker",
         "tamasfe.even-better-toml",
         "github.vscode-github-actions",
         "eamodio.gitlens",
         "VisualStudioExptTeam.vscodeintellicode",
-        "ms-python.isort",
         "bmalehorn.shell-syntax",
         "foxundermoon.shell-format",
         "mhutchie.git-graph",
         "charliermarsh.ruff",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "ms-python.mypy-type-checker",
+        "ms-python.isort",
+        "ms-python.black-formatter"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+          },
+          "isort.args": ["--profile", "black"],
+          "editor.rulers": [100]
+        }
       }
     }
   }
