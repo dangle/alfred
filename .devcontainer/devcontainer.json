@@ -1,12 +1,10 @@
 {
   "name": "Alfred (Dev Container)",
-
   "build": {
     "dockerfile": "Dockerfile"
   },
-
   "postCreateCommand": "pdm install -d",
-
+  "fowardPorts": [2222],
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
       "installZsh": true,
@@ -33,7 +31,6 @@
       "version": "latest"
     }
   },
-
   "customizations": {
     "vscode": {
       "extensions": [
