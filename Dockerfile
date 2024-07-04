@@ -1,4 +1,4 @@
-FROM python:3.12.4-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 ARG PDM_VERSION=2.16.1
 

@@ -1,54 +1,61 @@
 {
-	"name": "Alfred (Dev Container)",
+  "name": "Alfred (Dev Container)",
 
-	"build": {
-			"dockerfile": "Dockerfile"
-	},
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
 
-	"postCreateCommand": "pdm install",
+  "postCreateCommand": "pdm install -d",
 
-	"features": {
-		"ghcr.io/devcontainers/features/common-utils:2": {
-			"installZsh": true,
-			"configureZshAsDefaultShell": true,
-			"installOhMyZsh": true,
-			"installOhMyZshConfig": true,
-			"upgradePackages": true,
-			"nonFreePackages": true,
-			"username": "automatic",
-			"userUid": "automatic",
-			"userGid": "automatic"
-		},
-		"ghcr.io/devcontainers/features/git:1": {
-			"ppa": true,
-			"version": "latest"
-		},
-		"ghcr.io/devcontainers/features/sshd:1": {
-			"version": "latest"
-		},
-		"ghcr.io/devcontainers/features/common-utils:2.1.1": {
-			"version": "latest"
-		}
-	},
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": true,
+      "installOhMyZshConfig": true,
+      "upgradePackages": true,
+      "nonFreePackages": true,
+      "username": "automatic",
+      "userUid": "automatic",
+      "userGid": "automatic"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "ppa": true,
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/common-utils:2.1.1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest"
+    }
+  },
 
-	"customizations":{
-			"vscode": {
-					"extensions":[
-						"ms-python.python",
-						"ms-python.vscode-pylance",
-						"mads-hartmann.bash-ide-vscode",
-						"ms-python.black-formatter",
-						"ms-azuretools.vscode-docker",
-						"tamasfe.even-better-toml",
-						"github.vscode-github-actions",
-						"eamodio.gitlens",
-						"VisualStudioExptTeam.vscodeintellicode",
-						"ms-python.isort",
-						"bmalehorn.shell-syntax",
-						"foxundermoon.shell-format",
-						"mhutchie.git-graph",
-						"charliermarsh.ruff"
-					]
-			}
-	}
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "mads-hartmann.bash-ide-vscode",
+        "ms-python.black-formatter",
+        "ms-azuretools.vscode-docker",
+        "tamasfe.even-better-toml",
+        "github.vscode-github-actions",
+        "eamodio.gitlens",
+        "VisualStudioExptTeam.vscodeintellicode",
+        "ms-python.isort",
+        "bmalehorn.shell-syntax",
+        "foxundermoon.shell-format",
+        "mhutchie.git-graph",
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
+      }
+    }
+  }
 }
