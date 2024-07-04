@@ -1,0 +1,31 @@
+[project]
+name = "alfred"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Melissa Nuño", email = "melissa@dangle.dev"},
+]
+dependencies = [
+    "py-cord[speed,voice]>=2.5.0",
+    "requests>=2.32.3",
+    "openai>=1.35.10",
+    "python-dotenv>=1.0.1",
+    "structlog>=24.2.0",
+]
+requires-python = ">=3.12"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.dev-dependencies]
+test = [
+    "pytest>=8.2.2",
+]
+dev = [
+    "bpython>=0.24",
+    "mypy>=1.10.1",
+    "ruff>=0.5.0",
+]
