@@ -5,7 +5,7 @@
 groups = ["default", "test", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.2"
-content_hash = "sha256:707ddc25653389c4ed4aac349edb103397a4a445dfce0da9a6acda3819671113"
+content_hash = "sha256:be3dd1627cde5f21657a3c110ffffbb6b26d9b084ad6327cdc9f2422d2cef17d"
 
 [[package]]
 name = "aiodns"
@@ -283,7 +283,7 @@ name = "charset-normalizer"
 version = "3.3.2"
 requires_python = ">=3.7.0"
 summary = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
-groups = ["default", "dev"]
+groups = ["dev"]
 files = [
     {file = "charset-normalizer-3.3.2.tar.gz", hash = "sha256:f30c3cb33b24454a82faecaf01b19c18562b1e89558fb6c56de4d9118a032fd5"},
     {file = "charset_normalizer-3.3.2-cp312-cp312-macosx_10_9_universal2.whl", hash = "sha256:0b2b64d2bb6d3fb9112bafa732def486049e63de9618b5843bcdd081d8144cd8"},
@@ -811,7 +811,7 @@ name = "requests"
 version = "2.32.3"
 requires_python = ">=3.8"
 summary = "Python HTTP for Humans."
-groups = ["default", "dev"]
+groups = ["dev"]
 dependencies = [
     "certifi>=2017.4.17",
     "charset-normalizer<4,>=2",
@@ -913,7 +913,7 @@ name = "urllib3"
 version = "2.2.2"
 requires_python = ">=3.8"
 summary = "HTTP library with thread-safe connection pooling, file post, and more."
-groups = ["default", "dev"]
+groups = ["dev"]
 files = [
     {file = "urllib3-2.2.2-py3-none-any.whl", hash = "sha256:a448b2f64d686155468037e1ace9f2d2199776e17f0a46610480d311f73e3472"},
     {file = "urllib3-2.2.2.tar.gz", hash = "sha256:dd505485549a7a552833da5e6063639d0d177c04f23bc3864e41e5dc5f612168"},

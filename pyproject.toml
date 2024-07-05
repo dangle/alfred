@@ -5,7 +5,6 @@ description = "Default template for PDM package"
 authors = [{ name = "Melissa Nuño", email = "melissa@dangle.dev" }]
 dependencies = [
     "py-cord[speed,voice]>=2.5.0",
-    "requests>=2.32.3",
     "openai>=1.35.10",
     "python-dotenv>=1.0.1",
     "structlog>=24.2.0",
