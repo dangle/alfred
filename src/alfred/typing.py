@@ -18,14 +18,17 @@ __all__ = (
 )
 
 type ArgParseAction = (
-    Literal["store"]
-    | Literal["store_const"]
-    | Literal["store_true"]
-    | Literal["append"]
-    | Literal["append_const"]
-    | Literal["count"]
-    | Literal["help"]
-    | Literal["version"]
+    Literal[
+        "store",
+        "store_const",
+        "store_true",
+        "store_false",
+        "append",
+        "append_const",
+        "count",
+        "help",
+        "version",
+    ]
 )
 
 type ConfigProcessor = Callable[[str], Any]
