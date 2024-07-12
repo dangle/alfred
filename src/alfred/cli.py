@@ -9,14 +9,24 @@ import sys
 
 import structlog
 
-from . import bot
+from . import __project_package__, bot
 from . import exceptions as exc
 from . import logging
-from .config import config
+from .config import CommandLineFlag, config
 from .features import features
 from .translation import gettext as _
 
 __all__ = ("run",)
+
+config(
+    "version",
+    flag=CommandLineFlag(
+        name="--version",
+        short="-v",
+        action="version",
+        version=f"{config.bot_name} {config.version}",
+    ),
+)
 
 
 def run() -> None:
@@ -29,11 +39,11 @@ def run() -> None:
         with logging.delay_logging():
             features.discover_features()
             config.load(
-                prog="alfred",
+                prog=__project_package__,
                 description=_(
-                    "Alfred is an extensible Discord bot that can use ChatGPT to respond"
+                    "{project_name} is an extensible Discord bot that can use ChatGPT to respond"
                     " conversationally and run commands on behalf of the server users."
-                ),
+                ).format(project_name=config.bot_name),
                 formatter_class=argparse.RawTextHelpFormatter,
             )
         bot.run()

@@ -26,11 +26,11 @@ def configure_ai(required: bool = False) -> None:
             metavar="OPENAI_API_KEY",
             help=_(
                 "The OpenAI API key for authenticating to the your OpenAI project.\n"
-                "This is necessary if you want Alfred to parse messages to run commands and respond"
+                "This is necessary if you want {project_name} to parse messages to run commands and respond"
                 "conversationally.\n"
-                "If not supplied, Alfred will also look for the OPENAI_API_KEY environment"
+                "If not supplied, {project_name} will also look for the OPENAI_API_KEY environment"
                 " variable."
-            ),
+            ).format(project_name=config.bot_name),
             type=lambda _: openai.OpenAI(),
         ),
         required=required,

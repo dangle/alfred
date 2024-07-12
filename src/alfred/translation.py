@@ -4,9 +4,11 @@ import gettext as gettext_
 import pathlib
 from typing import Callable
 
+from . import __project_package__
+
 __all__ = ("gettext",)
 
-_DOMAIN = "alfred"
+_DOMAIN = __project_package__
 _localedir: pathlib.Path = pathlib.Path(__file__).resolve().parent / "locale"
 
 _gettext: Callable[[str], str] = gettext_.translation(

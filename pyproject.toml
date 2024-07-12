@@ -1,6 +1,6 @@
 [project]
 name = "alfred"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Default template for PDM package"
 authors = [{ name = "Melissa Nuño", email = "melissa@dangle.dev" }]
 dependencies = [
@@ -9,6 +9,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "structlog>=24.2.0",
     "aiohttp[speedups]>=3.9.5",
+    "dunamai>=1.21.2",
 ]
 requires-python = ">=3.12"
 readme = "README.md"

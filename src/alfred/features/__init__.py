@@ -18,7 +18,7 @@ from ..config import config
 __all__ = ("features",)
 
 # The group name that all new features must belong to in order to be discovered
-_ENTRY_POINT_GROUP: str = "alfred.features"
+_ENTRY_POINT_GROUP: str = __name__
 
 
 class _Features:

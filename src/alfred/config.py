@@ -45,6 +45,7 @@ from typing import Any, Container, Generator, Iterable, Literal, cast
 import dotenv
 import structlog
 
+from . import __version__
 from .exceptions import (
     ConfigurationException,
     EnvironmentVariableException,
@@ -52,6 +53,7 @@ from .exceptions import (
     ReadonlyConfigurationException,
     RequiredValueException,
 )
+from .translation import gettext as _
 from .typing import ArgParseAction, ConfigProcessor
 
 __all__ = (
@@ -114,6 +116,7 @@ class CommandLineFlag:
     metavar: str | None = None
     nargs: int | Literal["*"] | Literal["?"] | Literal["+"] | None = None
     type: ConfigProcessor | None = None
+    version: str | None = None
 
 
 @dataclasses.dataclass
@@ -347,6 +350,30 @@ class _Config:
         )
 
     @property
+    def bot_name(self) -> str:
+        """Return the translated bot name.
+
+        Returns
+        -------
+        str
+            The translated bot name.
+        """
+
+        return _("Alfred")
+
+    @property
+    def version(self) -> str:
+        """Return the current bot version.
+
+        Returns
+        -------
+        str
+            The bot version.
+        """
+
+        return __version__
+
+    @property
     @contextlib.contextmanager
     def readonly(self) -> Generator[None, None, None]:
         """A context manager that will lock the configuration so that no changes can occur.
@@ -464,9 +491,12 @@ class _Config:
         parsed_args: argparse.Namespace = parser.parse_args()
 
         for cv in flag_config_values:
-            value: Any = getattr(parsed_args, cv.name)
-            if value is not None:
-                cv.value = value
+            try:
+                value: Any = getattr(parsed_args, cv.name)
+                if value is not None:
+                    cv.value = value
+            except AttributeError:
+                pass
 
     def _load_env(self) -> None:
         """Load and parse all configured environment variables."""
