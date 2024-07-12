@@ -15,4 +15,4 @@ COPY . .
 
 RUN pdm install
 
-ENTRYPOINT [ "/app/run-bot.sh"]
+ENTRYPOINT [ "pdm", "run", "alfred" ]
