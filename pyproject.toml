@@ -39,6 +39,7 @@ dev = [
     "pyment>=0.3.3",
     "ruff>=0.5.0",
     "sphinx>=7.3.7",
+    "sphinx-rtd-theme>=2.0.0",
 ]
 
 [tool.pdm.scripts]
@@ -56,4 +57,6 @@ new-translation = { shell = "bash -c 'locale=\"{args}\" ; mkdir -p locales/\"${l
 pre_update-translations = "{pdm} extract-strings"
 update-translations = { shell = "bash -c 'for d in locales/*/; do msgmerge --update \"${d}\"LC_MESSAGES/alfred.po locales/alfred.pot; done'" }
 export-translations = { shell = "bash -c 'for d in locales/*/; do msgfmt -o \"${d}\"LC_MESSAGES/alfred.mo \"${d}\"LC_MESSAGES/alfred; done'" }
-
+update-doc-stubs = "sphinx-apidoc -f -o docs/source src/alfred"
+pre_gen-docs = "{pdm} update-doc-stubs"
+gen-docs = "make -C docs clean html"

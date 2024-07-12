@@ -6,15 +6,6 @@ Attributes
 config : _Config
     An instance of `_Config` that can be globally accessed for sharing processed attributes from
     command-line flags and environment variables.
-csv : Callable[[str], list[str]]
-    A simple processor for environment variables that will parse a comma-separated list of strings.
-    This can be used by passing it into the `type` attribute of `EnvironmentVariable`.
-CommandLineFlag : type
-    A dataclass containing a subset of the arguments for `argparse.add_argument` that can be used to
-    configure a value and update the available command-line flags.
-EnvironmentVariable : type
-    A dataclass containing the name of an environment variable and an optional `type` attribute that
-    will be used to process the environment variable.
 
 Examples
 --------

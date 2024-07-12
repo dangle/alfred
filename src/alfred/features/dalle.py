@@ -4,6 +4,7 @@ Commands
 --------
 /dall-e-2 prompt [size] [quality]
     Generates an image using DALL-E-2 with the specified parameters.
+
 /dall-e-3 prompt [size] [quality]
     Generates an image using DALL-E-3 with the specified parameters.
 """
