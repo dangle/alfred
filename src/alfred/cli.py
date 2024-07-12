@@ -16,6 +16,8 @@ from .config import config
 from .features import features
 from .translation import gettext as _
 
+__all__ = ("run",)
+
 
 def run() -> None:
     """Configure and start the program."""

@@ -5,6 +5,8 @@ import openai
 from ..config import CommandLineFlag, EnvironmentVariable, config
 from ..translation import gettext as _
 
+__all__ = ("configure_ai",)
+
 
 def configure_ai(required: bool = False) -> None:
     """Configure the OpenAI client.
