@@ -14,9 +14,32 @@ requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "MIT" }
 
+[project.entry-points."alfred.features"]
+"Bot Admin" = "alfred.features.admin"
+"DALL-E" = "alfred.features.dalle"
+"ChatGPT" = "alfred.features.chatgpt"
+
+[project.scripts]
+alfred = "alfred.cli:run"
+
+[tool.mypy]
+disable_error_code = ["valid-type"]
+
+[[tool.mypy.overrides]]
+module = ["aiohttp.*", "discord.*", "structlog.*", "openai.*", "dotenv.*"]
+ignore_missing_imports = true
+
+[tool.pdm]
+distribution = true
 [tool.pdm.dev-dependencies]
 test = ["pytest>=8.2.2"]
-dev = ["bpython>=0.24", "mypy>=1.10.1", "pyment>=0.3.3", "ruff>=0.5.0"]
+dev = [
+    "bpython>=0.24",
+    "mypy>=1.10.1",
+    "pyment>=0.3.3",
+    "ruff>=0.5.0",
+    "sphinx>=7.3.7",
+]
 
 [tool.pdm.scripts]
 lint.composite = ["ruff check src/ tests/", "mypy src/ tests/"]
@@ -34,20 +57,3 @@ pre_update-translations = "{pdm} extract-strings"
 update-translations = { shell = "bash -c 'for d in locales/*/; do msgmerge --update \"${d}\"LC_MESSAGES/alfred.po locales/alfred.pot; done'" }
 export-translations = { shell = "bash -c 'for d in locales/*/; do msgfmt -o \"${d}\"LC_MESSAGES/alfred.mo \"${d}\"LC_MESSAGES/alfred; done'" }
 
-[project.entry-points."alfred.features"]
-"Bot Admin" = "alfred.features.admin"
-"DALL-E" = "alfred.features.dalle"
-"ChatGPT" = "alfred.features.chatgpt"
-
-[project.scripts]
-alfred = "alfred.cli:run"
-
-[tool.pdm]
-distribution = true
-
-[tool.mypy]
-disable_error_code = ["valid-type"]
-
-[[tool.mypy.overrides]]
-module = ["aiohttp.*", "discord.*", "structlog.*", "openai.*", "dotenv.*"]
-ignore_missing_imports = true
