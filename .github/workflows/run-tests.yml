@@ -1,4 +1,4 @@
-name: Run code quality checks
+name: Run unit tests
 on:
   pull_request:
     paths:
@@ -8,7 +8,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  code-quality:
+  unit-tests:
+    name: 'Run unit tests'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -20,4 +21,4 @@ jobs:
       - name: Install dependencies
         run: pdm install -d
       - name: Run linters
-        run: pdm lint
+        run: pdm test
