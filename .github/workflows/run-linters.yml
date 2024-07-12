@@ -3,12 +3,14 @@ on:
   pull_request:
     paths:
       - '**.py'
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   code-quality:
+    name: 'Run code quality checks'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
