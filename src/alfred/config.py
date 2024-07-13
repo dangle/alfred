@@ -85,7 +85,17 @@ def csv(value: str) -> list[str]:
 
 @dataclasses.dataclass
 class EnvironmentVariable:
-    """A dataclass for storing the name of an environment variable and an optional result type."""
+    """A dataclass for storing the name of an environment variable and an optional result type.
+
+    Attributes
+    ----------
+    name : str
+        The name of the environment variable.
+    type : ConfigProcessor | None
+        The expected type of the environment variable. The string value of the environment variable
+        will be cast to this type.
+        If unsupplied, the value will be returned unchanged.
+    """
 
     name: str
     type: ConfigProcessor | None = None
@@ -98,14 +108,19 @@ class CommandLineFlag:
     `name` and `short` are the positional parameters to pass to `argparse.add_argument`.
 
     See: https://docs.python.org/3/library/argparse.html#quick-links-for-add-argument
+
+    Attributes
+    ----------
+    name : str
+        The command flag to add to `argparse`.
+        This can be a required flag, an optional value ("--flag"), or a short optional flag ("-f").
+    short : str | None
+        An alias of the command.
+        This is often the short optional flag ("-f").
     """
 
-    # The command flag to add to `argparse`.
-    # This can be a required flag, an optional value ("--flag"), or a short optional flag ("-f").
     name: str
 
-    # An alias of the command.
-    # This is often the short optional flag ("-f").
     short: str | None = None
 
     # Supported `argparse.add_argument` flags.
