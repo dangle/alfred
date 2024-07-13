@@ -6,14 +6,17 @@ from typing import Callable
 
 from . import __project_package__
 
-__all__ = ("gettext",)
+__all__ = (
+    "bind",
+    "gettext",
+)
 
 _DOMAIN = __project_package__
-_localedir: pathlib.Path = pathlib.Path(__file__).resolve().parent / "locale"
+_LOCALE_DIR: pathlib.Path = pathlib.Path(__file__).resolve().parent / "locale"
 
 _gettext: Callable[[str], str] = gettext_.translation(
     domain=_DOMAIN,
-    localedir=str(_localedir),
+    localedir=str(_LOCALE_DIR),
     fallback=True,
 ).gettext
 
@@ -28,3 +31,11 @@ def gettext(value: str) -> str:
     """
 
     return _gettext(value)
+
+
+def bind() -> None:
+    """Bind the global `gettext` domain to the bot domain."""
+
+    if gettext_.find(_DOMAIN, localedir=_LOCALE_DIR):
+        gettext_.bindtextdomain(_DOMAIN, _LOCALE_DIR)
+        gettext_.textdomain(_DOMAIN)

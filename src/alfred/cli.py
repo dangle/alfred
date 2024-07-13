@@ -11,7 +11,7 @@ import structlog
 
 from . import __project_package__, bot
 from . import exceptions as exc
-from . import logging
+from . import logging, translation
 from .config import CommandLineFlag, config
 from .features import features
 from .translation import gettext as _
@@ -32,7 +32,9 @@ config(
 def run() -> None:
     """Configure and start the program."""
 
+    translation.bind()
     logging.configure_logging()
+
     log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
     try:
