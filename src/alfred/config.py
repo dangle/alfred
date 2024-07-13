@@ -343,9 +343,7 @@ class _Config:
         setattr(
             self,
             name,
-            _ConfigValue(
-                name=name, env=env, flag=flag, required=required, default=default
-            ),
+            _ConfigValue(name=name, env=env, flag=flag, required=required, default=default),
         )
 
     @property
@@ -515,9 +513,7 @@ class _Config:
                 try:
                     cv.value = cv.env.type(os.environ[cv.env.name])
                 except Exception as e:
-                    message: str = (
-                        f"Unable to process environment variable: {cv.env.name}"
-                    )
+                    message: str = f"Unable to process environment variable: {cv.env.name}"
                     if cv.required:
                         raise ValueError(message) from e
                     log.warning(message, exc_info=e)

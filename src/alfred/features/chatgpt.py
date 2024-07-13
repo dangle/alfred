@@ -172,9 +172,7 @@ def setup(bot: bot.Bot) -> None:
         bot.add_cog(ChatGPT(bot))
         return
 
-    log.info(
-        f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}'
-    )
+    log.info(f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}')
 
 
 class ChatGPT(commands.Cog):
@@ -196,9 +194,7 @@ class ChatGPT(commands.Cog):
             "If you do not believe a message is intended for you, respond with:"
             f" {self._NO_RESPONSE}\n"
         )
-        self._last_explicit_interaction_time: datetime.datetime = (
-            datetime.datetime.now()
-        )
+        self._last_explicit_interaction_time: datetime.datetime = datetime.datetime.now()
 
     @commands.Cog.listener("on_ready")
     async def begin_status(self) -> None:
@@ -296,9 +292,7 @@ class ChatGPT(commands.Cog):
 
         return any(m.id == self._bot.application_id for m in message.mentions)
 
-    async def _send_message(
-        self, message: discord.Message, must_respond: bool
-    ) -> str | None:
+    async def _send_message(self, message: discord.Message, must_respond: bool) -> str | None:
         """Send a message to the chat service with historical context and return the response.
 
         If `must_respond` is `False` this will prepend a system message that allows the bot to
@@ -385,9 +379,7 @@ class ChatGPT(commands.Cog):
             message.
         """
 
-        messages: list[ChatCompletionMessageParam] = self._history[
-            message.channel.id
-        ].copy()
+        messages: list[ChatCompletionMessageParam] = self._history[message.channel.id].copy()
 
         if not must_respond or config.chatgpt_system_message:
             messages.insert(

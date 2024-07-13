@@ -76,9 +76,9 @@ config(
     flag=CommandLineFlag(
         name="--disable-admin-commands",
         action="store_true",
-        help=_(
-            "Disable the Discord commands for administrating {project_name}."
-        ).format(project_name=config.bot_name),
+        help=_("Disable the Discord commands for administrating {project_name}.").format(
+            project_name=config.bot_name
+        ),
     ),
 )
 
@@ -119,8 +119,7 @@ class Bot(discord.Bot):
                 raise FeatureNotFoundException(feature=feature)
 
         feature_modules: set[str] = {
-            features_.get_module_name_by_feature(feature)
-            for feature in features_to_enable
+            features_.get_module_name_by_feature(feature) for feature in features_to_enable
         }
 
         if "intents" not in kwargs:
@@ -136,9 +135,7 @@ class Bot(discord.Bot):
         finally:
             log.info("Done loading bot extension modules.")
 
-    def _get_intents_from_features(
-        self, feature_modules: Iterable[str]
-    ) -> discord.Intents:
+    def _get_intents_from_features(self, feature_modules: Iterable[str]) -> discord.Intents:
         """Get the `discord.Intents` necessary to run all enabled features.
 
         Parameters
@@ -158,9 +155,7 @@ class Bot(discord.Bot):
         for module_name in feature_modules:
             module = sys.modules[module_name]
 
-            if hasattr(module, "__intents__") and isinstance(
-                module.__intents__, discord.Intents
-            ):
+            if hasattr(module, "__intents__") and isinstance(module.__intents__, discord.Intents):
                 intents = intents | module.__intents__
 
         return intents
@@ -192,9 +187,7 @@ class Bot(discord.Bot):
             The set of all disabled features.
         """
 
-        disabled_features: set[str] = features_.all_features.difference(
-            self.enabled_features
-        )
+        disabled_features: set[str] = features_.all_features.difference(self.enabled_features)
         log.debug(f"Disabled features: {", ".join(disabled_features)}")
         return disabled_features
 
@@ -334,9 +327,7 @@ class Bot(discord.Bot):
         }
         config.load()
 
-        await log.ainfo(
-            f"Loading bot extension modules: {", ".join(sorted(feature_modules))}"
-        )
+        await log.ainfo(f"Loading bot extension modules: {", ".join(sorted(feature_modules))}")
 
         with config.readonly:
             self.load_extensions(*feature_modules)

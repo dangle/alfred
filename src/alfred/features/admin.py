@@ -165,9 +165,7 @@ class Admin(commands.Cog):
             try:
                 await self._bot.enable_feature(feature)
             except Exception:
-                await ctx.respond(
-                    _("Failed to enable feature: {feature}").format(feature=feature)
-                )
+                await ctx.respond(_("Failed to enable feature: {feature}").format(feature=feature))
                 raise
 
         await ctx.respond(_("Feature enabled: {feature}").format(feature=feature))
@@ -191,17 +189,13 @@ class Admin(commands.Cog):
             return
 
         if feature not in self.enabled_features:
-            await ctx.respond(
-                _("Feature not enabled: {feature}").format(feature=feature)
-            )
+            await ctx.respond(_("Feature not enabled: {feature}").format(feature=feature))
             return
 
         try:
             await self._bot.disable_feature(feature)
         except Exception:
-            await ctx.respond(
-                _("Failed to disable feature: {feature}").format(feature=feature)
-            )
+            await ctx.respond(_("Failed to disable feature: {feature}").format(feature=feature))
             raise
 
         await ctx.respond(_("Disabling feature: {feature}").format(feature=feature))
@@ -209,9 +203,7 @@ class Admin(commands.Cog):
     @commands.slash_command(guild_ids=config.guild_ids)
     @commands.has_permissions(administrator=True)
     @discord.option(_("feature"), str, required=False, parameter_name="feature")
-    async def reload(
-        self, ctx: discord.ApplicationContext, *, feature: str | None = None
-    ) -> None:
+    async def reload(self, ctx: discord.ApplicationContext, *, feature: str | None = None) -> None:
         """Reload a bot feature.
 
         If no feature is specified, reload the entire bot.
@@ -237,9 +229,7 @@ class Admin(commands.Cog):
         try:
             await self._bot.reload_feature(feature)
         except Exception:
-            await ctx.respond(
-                _("Failed to reload feature: {feature}").format(feature=feature)
-            )
+            await ctx.respond(_("Failed to reload feature: {feature}").format(feature=feature))
             raise
 
         await ctx.respond(_("Feature reloaded: {feature}").format(feature=feature))

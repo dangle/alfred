@@ -53,9 +53,7 @@ def setup(bot: discord.Bot) -> None:
         bot.add_cog(DallE())
         return
 
-    log.info(
-        f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}'
-    )
+    log.info(f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}')
 
 
 class _Model(enum.StrEnum):
