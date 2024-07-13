@@ -209,18 +209,17 @@ class _Config:
         -------
         Any
             The processed value of the configuration attribute.
+            If the attribute does not exist in the mapping it returns `None`.
 
         Raises
         ------
-        AttributeError
-            Raised if the attribute is not in the configuration map.
         ConfigurationException
             Raised when the an attempt to access the value is made before the configuration has been
             loaded, it is a required value, and there is no default value set.
         """
 
         if name not in vars(self)["_config"]:
-            raise AttributeError(name=name, obj=self)
+            return None
 
         return vars(self)["_config"][name].value
 

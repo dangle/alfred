@@ -47,11 +47,10 @@ dev = [
 lint.composite = ["ruff check src/ tests/", "mypy src/ tests/"]
 pre_start = { shell = "bash -c '{pdm} install &> /dev/null'" }
 start = { cmd = "alfred", env_file = ".env" }
-pre_start-pretty = { shell = "bash -c '{pdm} install &> /dev/null'" }
-start-pretty = { cmd = "bash -c 'alfred |& jq {args}'", env_file = ".env" }
 pre_debug = { shell = "bash -c '{pdm} install &> /dev/null'" }
 debug = { cmd = "alfred", env = { LOG_LEVEL = "DEBUG" }, env_file = ".env" }
-pdb = { cmd = "python -m pdb src/alfred/main.py", env_file = ".env" }
+pre_pdb = { shell = "bash -c '{pdm} install &> /dev/null'" }
+pdb = { cmd = "python -m pdb src/alfred/cli.py", env_file = ".env" }
 test = "pytest -vvra"
 extract-strings = { shell = "mkdir locales 2>/dev/null ; find src/ -iname '*.py' | xargs xgettext -d alfred -o locales/alfred.pot --from-code UTF-8" }
 new-translation = { shell = "bash -c 'locale=\"{args}\" ; mkdir -p locales/\"${locale:0:2}\"/LC_MESSAGES ; msginit -l \"${locale}\" -o locales/${locale:0:2}/LC_MESSAGES/alfred.po -i locales/alfred.pot --no-translator'" }
