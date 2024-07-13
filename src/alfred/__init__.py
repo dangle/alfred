@@ -1,3 +1,13 @@
+"""Contains global package constants.
+
+Attributes
+----------
+__project_package__ : str
+    The name of the root package of the project.
+__version__ : str
+    The dynamically calculated version of the project.
+"""
+
 import dunamai
 
 __all__ = (
