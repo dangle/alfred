@@ -344,19 +344,27 @@ class Bot(commands.Bot):
 
     async def on_application_command_error(
         self,
-        _: discord.ApplicationContext,
+        ctx: discord.ApplicationContext,
         exception: discord.DiscordException,
     ):
         """Catch all application command errors and log them.
 
         Parameters
         ----------
-        _ : discord.ApplicationContext
+        ctx : discord.ApplicationContext
             The context for the current command.
-            Unused
         exception : discord.DiscordException
             The exception raised from the application command.
         """
+
+        if self._event_handlers.get("on_application_command_error", None):
+            return
+
+        if (command := ctx.command) and command.has_error_handler():
+            return
+
+        if (cog := ctx.cog) and cog.has_error_handler():
+            return
 
         await log.aexception(
             "An exception occurred while running an application command.",
