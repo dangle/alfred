@@ -60,3 +60,4 @@ export-translations = { shell = "bash -c 'for d in locales/*/; do msgfmt --check
 update-doc-stubs = "sphinx-apidoc -f -o docs/source src/alfred"
 pre_gen-docs = "{pdm} update-doc-stubs"
 gen-docs = "make -C docs clean html"
+format = "black src/alfred"
