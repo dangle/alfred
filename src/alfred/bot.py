@@ -6,7 +6,6 @@ from typing import Any, Iterable
 
 import discord
 import structlog
-from discord.ext import commands
 
 from .config import CommandLineFlag, EnvironmentVariable, config, csv
 from .exceptions import FeatureNotFoundException
@@ -84,7 +83,7 @@ config(
 )
 
 
-class Bot(commands.Bot):
+class Bot(discord.Bot):
     """The main `Bot` class used for managing bot extension modules.
 
     Parameters

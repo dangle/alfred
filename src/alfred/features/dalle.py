@@ -40,8 +40,8 @@ _ai.configure_ai()
 def setup(bot: discord.Bot) -> None:
     """Add this feature `commands.Cog` to the `bot.Bot`.
 
-    If the `openai.OpenAI` client has not been configured as the `ai` configuration attribute this
-    will not be added to the `bot.Bot`.
+    If the `openai.AsyncOpenAI` client has not been configured as the `ai` configuration attribute
+    this will not be added to the `bot.Bot`.
 
     Parameters
     ----------
@@ -102,14 +102,14 @@ class DallE(commands.Cog):
         _("size"),
         str,
         required=False,
-        choices=_DallE3Sizes.__members__,
+        choices=_DallE3Sizes.__members__.values(),
         parameter_name="size",
     )
     @discord.option(
         _("quality"),
         str,
         required=False,
-        choices=_ImageQuality.__members__,
+        choices=_ImageQuality.__members__.values(),
         parameter_name="quality",
     )
     async def dalle3(
@@ -151,14 +151,14 @@ class DallE(commands.Cog):
         _("size"),
         str,
         required=False,
-        choices=_DallE2Sizes.__members__,
+        choices=_DallE2Sizes.__members__.values(),
         parameter_name="size",
     )
     @discord.option(
         _("quality"),
         str,
         required=False,
-        choices=_ImageQuality.__members__,
+        choices=_ImageQuality.__members__.values(),
         parameter_name="quality",
     )
     async def dalle2(
@@ -224,7 +224,7 @@ class DallE(commands.Cog):
         log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
 
         try:
-            response: openai.types.ImagesResponse = config.ai.images.generate(
+            response: openai.types.ImagesResponse = await config.ai.images.generate(
                 model=model,
                 prompt=prompt,
                 size=size,

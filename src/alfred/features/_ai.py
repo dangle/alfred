@@ -20,7 +20,10 @@ def configure_ai(required: bool = False) -> None:
 
     config(  # Create the OpenAI client if it has been configured.
         "ai",
-        env=EnvironmentVariable(name="OPENAI_API_KEY", type=lambda _: openai.OpenAI()),
+        env=EnvironmentVariable(
+            name="OPENAI_API_KEY",
+            type=lambda _: openai.AsyncOpenAI(),
+        ),
         flag=CommandLineFlag(
             name="--openai-api-key",
             metavar="OPENAI_API_KEY",
@@ -31,7 +34,7 @@ def configure_ai(required: bool = False) -> None:
                 "If not supplied, {project_name} will also look for the OPENAI_API_KEY environment"
                 " variable."
             ).format(project_name=config.bot_name),
-            type=lambda _: openai.OpenAI(),
+            type=lambda _: openai.AsyncOpenAI(),
         ),
         required=required,
     )
