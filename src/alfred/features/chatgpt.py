@@ -337,7 +337,11 @@ class ChatGPT(commands.Cog):
 
         assistant_message: str | None = response.choices[0].message.content
 
-        if not must_respond and assistant_message == self._NO_RESPONSE:
+        if (
+            not must_respond
+            and assistant_message == self._NO_RESPONSE
+            or assistant_message == message.content
+        ):
             return None
 
         if assistant_message is not None:
