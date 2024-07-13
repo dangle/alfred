@@ -268,7 +268,6 @@ class ChatGPT(commands.Cog):
         if response is not None:
             await message.reply(response)
 
-
     def _must_respond(self, message: discord.Message) -> bool:
         """Determine if the bot *must* respond to the given `message`.
 
