@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-11 20:20+0000\n"
-"PO-Revision-Date: 2024-07-11 20:20+0000\n"
+"POT-Creation-Date: 2024-07-12 23:26+0000\n"
+"PO-Revision-Date: 2024-07-12 23:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en_US\n"
@@ -17,146 +17,160 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/alfred/features/admin.py:110
+#: src/alfred/bot.py:29
+#, python-brace-format
+msgid ""
+"The Discord authentication token for {project_name}.\n"
+"If not supplied, {project_name} will look for the DISCORD_TOKEN environment "
+"variable."
+msgstr ""
+"The Discord authentication token for {project_name}.\n"
+"If not supplied, {project_name} will look for the DISCORD_TOKEN environment "
+"variable."
+
+#: src/alfred/bot.py:46
+#, python-brace-format
+msgid ""
+"The guild (server) IDs of servers on which to enable {project_name} "
+"commands.\n"
+"If not supplied, {project_name} will look for the DISCORD_GUILD_IDS "
+"environment variable.\n"
+"If no guild IDs are given, commands will be registered as global and will "
+"take up to an hour to become usable."
+msgstr ""
+"The guild (server) IDs of servers on which to enable {project_name} "
+"commands.\n"
+"If not supplied, {project_name} will look for the DISCORD_GUILD_IDS "
+"environment variable.\n"
+"If no guild IDs are given, commands will be registered as global and will "
+"take up to an hour to become usable."
+
+#: src/alfred/bot.py:66
+#, python-brace-format
+msgid ""
+"{project_name} features to enable.\n"
+"If not supplied, {project_name} will look for the ALFRED_ENABLED_FEATURES "
+"environment variable.\n"
+"If no features are given, all features will be enabled by default."
+msgstr ""
+"{project_name} features to enable.\n"
+"If not supplied, {project_name} will look for the ALFRED_ENABLED_FEATURES "
+"environment variable.\n"
+"If no features are given, all features will be enabled by default."
+
+#: src/alfred/bot.py:81
+#, python-brace-format
+msgid "Disable the Discord commands for administrating {project_name}."
+msgstr "Disable the Discord commands for administrating {project_name}."
+
+#: src/alfred/features/_ai.py:28
+#, python-brace-format
+msgid ""
+"The OpenAI API key for authenticating to the your OpenAI project.\n"
+"This is necessary if you want {project_name} to parse messages to run "
+"commands and respondconversationally.\n"
+"If not supplied, {project_name} will also look for the OPENAI_API_KEY "
+"environment variable."
+msgstr ""
+"The OpenAI API key for authenticating to the your OpenAI project.\n"
+"This is necessary if you want {project_name} to parse messages to run "
+"commands and respondconversationally.\n"
+"If not supplied, {project_name} will also look for the OPENAI_API_KEY "
+"environment variable."
+
+#: src/alfred/features/admin.py:114
 msgid "There are no enabled features."
 msgstr "There are no enabled features."
 
-#: src/alfred/features/admin.py:115
+#: src/alfred/features/admin.py:119
 #, python-brace-format
 msgid "The following features are enabled: {enabled_features}"
 msgstr "The following features are enabled: {enabled_features}"
 
-#: src/alfred/features/admin.py:132
+#: src/alfred/features/admin.py:136
 msgid "There are no disabled features."
 msgstr "There are no disabled features."
 
-#: src/alfred/features/admin.py:137
+#: src/alfred/features/admin.py:141
 #, python-brace-format
 msgid "The following features are disabled: {disabled_features}"
 msgstr "The following features are disabled: {disabled_features}"
 
-#: src/alfred/features/admin.py:144 src/alfred/features/admin.py:173
-#: src/alfred/features/admin.py:207
+#: src/alfred/features/admin.py:148 src/alfred/features/admin.py:177
+#: src/alfred/features/admin.py:211
 msgid "feature"
 msgstr "feature"
 
-#: src/alfred/features/admin.py:157 src/alfred/features/admin.py:186
-#: src/alfred/features/admin.py:230
+#: src/alfred/features/admin.py:161 src/alfred/features/admin.py:190
+#: src/alfred/features/admin.py:234
 #, python-brace-format
 msgid "Feature not found: {feature}"
 msgstr "Feature not found: {feature}"
 
-#: src/alfred/features/admin.py:165
+#: src/alfred/features/admin.py:169
 #, python-brace-format
 msgid "Failed to enable feature: {feature}"
 msgstr "Failed to enable feature: {feature}"
 
-#: src/alfred/features/admin.py:169
+#: src/alfred/features/admin.py:173
 #, python-brace-format
 msgid "Feature enabled: {feature}"
 msgstr "Feature enabled: {feature}"
 
-#: src/alfred/features/admin.py:191
+#: src/alfred/features/admin.py:195
 #, python-brace-format
 msgid "Feature not enabled: {feature}"
 msgstr "Feature not enabled: {feature}"
 
-#: src/alfred/features/admin.py:199
+#: src/alfred/features/admin.py:203
 #, python-brace-format
 msgid "Failed to disable feature: {feature}"
 msgstr "Failed to disable feature: {feature}"
 
-#: src/alfred/features/admin.py:203
+#: src/alfred/features/admin.py:207
 #, python-brace-format
 msgid "Disabling feature: {feature}"
 msgstr "Disabling feature: {feature}"
 
-#: src/alfred/features/admin.py:226
+#: src/alfred/features/admin.py:230
 msgid "Reloaded bot features"
 msgstr "Reloaded bot features"
 
-#: src/alfred/features/admin.py:237
+#: src/alfred/features/admin.py:241
 #, python-brace-format
 msgid "Failed to reload feature: {feature}"
 msgstr "Failed to reload feature: {feature}"
 
-#: src/alfred/features/admin.py:241
+#: src/alfred/features/admin.py:245
 #, python-brace-format
 msgid "Feature reloaded: {feature}"
 msgstr "Feature reloaded: {feature}"
 
-#: src/alfred/features/dalle.py:95 src/alfred/features/dalle.py:144
+#: src/alfred/features/dalle.py:96 src/alfred/features/dalle.py:145
 msgid "prompt"
 msgstr "prompt"
 
-#: src/alfred/features/dalle.py:101 src/alfred/features/dalle.py:150
+#: src/alfred/features/dalle.py:102 src/alfred/features/dalle.py:151
 msgid "size"
 msgstr "size"
 
-#: src/alfred/features/dalle.py:108 src/alfred/features/dalle.py:157
+#: src/alfred/features/dalle.py:109 src/alfred/features/dalle.py:158
 msgid "quality"
 msgstr "quality"
 
-#: src/alfred/features/dalle.py:242
+#: src/alfred/features/dalle.py:243
 msgid "Unable to download generated image."
 msgstr "Unable to download generated image."
 
-#: src/alfred/features/_ai.py:26
+#: src/alfred/cli.py:44
+#, python-brace-format
 msgid ""
-"The OpenAI API key for authenticating to the your OpenAI project.\n"
-"This is necessary if you want Alfred to parse messages to run commands and "
-"respondconversationally.\n"
-"If not supplied, Alfred will also look for the OPENAI_API_KEY environment "
-"variable."
-msgstr ""
-"The OpenAI API key for authenticating to the your OpenAI project.\n"
-"This is necessary if you want Alfred to parse messages to run commands and "
-"respondconversationally.\n"
-"If not supplied, Alfred will also look for the OPENAI_API_KEY environment "
-"variable."
-
-#: src/alfred/main.py:32
-msgid ""
-"Alfred is an extensible Discord bot that can use ChatGPT to respond "
+"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
 "conversationally and run commands on behalf of the server users."
 msgstr ""
-"Alfred is an extensible Discord bot that can use ChatGPT to respond "
+"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
 "conversationally and run commands on behalf of the server users."
 
-#: src/alfred/bot.py:29
-msgid ""
-"The Discord authentication token for Alfred.\n"
-"If not supplied, Alfred will look for the DISCORD_TOKEN environment variable."
-msgstr ""
-"The Discord authentication token for Alfred.\n"
-"If not supplied, Alfred will look for the DISCORD_TOKEN environment variable."
-
-#: src/alfred/bot.py:46
-msgid ""
-"The guild (server) IDs of servers on which to enable Alfred commands.\n"
-"If not supplied, Alfred will look for the DISCORD_GUILD_IDS environment "
-"variable.\n"
-"If no guild IDs are given, commands will be registered as global and will "
-"take up to an hour to become usable."
-msgstr ""
-"The guild (server) IDs of servers on which to enable Alfred commands.\n"
-"If not supplied, Alfred will look for the DISCORD_GUILD_IDS environment "
-"variable.\n"
-"If no guild IDs are given, commands will be registered as global and will "
-"take up to an hour to become usable."
-
-#: src/alfred/bot.py:65
-msgid ""
-"Alfred features to enable.\n"
-"If not supplied, Alfred will look for the ALFRED_ENABLED_FEATURES "
-"environment variable.\n"
-"If no features are given, all features will be enabled by default."
-msgstr ""
-"Alfred features to enable.\n"
-"If not supplied, Alfred will look for the ALFRED_ENABLED_FEATURES "
-"environment variable.\n"
-"If no features are given, all features will be enabled by default."
-
-#: src/alfred/bot.py:79
-msgid "Disable the Discord commands for administrating Alfred."
-msgstr "Disable the Discord commands for administrating Alfred."
+#: src/alfred/config.py:362
+msgid "Alfred"
+msgstr "Alfred"
