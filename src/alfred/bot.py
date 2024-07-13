@@ -341,6 +341,47 @@ class Bot(discord.Bot):
         with config.readonly:
             self.load_extensions(*feature_modules)
 
+    async def is_active(self) -> bool:
+        """Determine if the bot presence is online.
+
+        Returns
+        -------
+            `True` if the bot has a presence that is set to `discord.enums.Status.online`.
+            `False` if the bot has any other presence value.
+        """
+
+        if not self._bot.application_id or not self._bot.guilds:
+            return False
+
+        guild = self._bot.guilds[0]
+        member = guild.get_member(self._bot.application_id)
+
+        if not member:
+            return False
+
+        return member.status == discord.enums.Status.online
+
+    def get_user_name(self, user: discord.User | discord.Member) -> str:
+        """Get the nickname or display name of the user or member.
+
+        If the user has an assigned nickname for the guild, use it.
+
+        Otherwise, return the display name for the user. The display name defaults to the username
+        if it is not configured.
+
+        Parameters
+        ----------
+        user : discord.User | discord.Member
+            The `discord.User` or `discord.Member`.
+
+        Returns
+        -------
+        str
+            The name of the user.
+        """
+
+        return user.nick if hasattr(user, "nick") and user.nick else user.display_name
+
     async def on_application_command_error(
         self,
         ctx: discord.ApplicationContext,

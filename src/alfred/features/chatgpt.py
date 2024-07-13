@@ -217,31 +217,11 @@ class ChatGPT(commands.Cog):
         Set the bot presence to idle if it has not been explicitly addressed within the last minute.
         """
 
-        if not await self._is_active():
+        if not await self._bot.is_active():
             return
 
         if datetime.datetime.now() >= self._last_explicit_interaction_time:
             await self._bot.change_presence(status=discord.enums.Status.idle)
-
-    async def _is_active(self) -> bool:
-        """Determine if the bot presence is online.
-
-        Returns
-        -------
-            `True` if the bot has a presence that is set to `discord.enums.Status.online`.
-            `False` if the bot has any other presence value.
-        """
-
-        if not self._bot.application_id or not self._bot.guilds:
-            return False
-
-        guild = self._bot.guilds[0]
-        member = guild.get_member(self._bot.application_id)
-
-        if not member:
-            return False
-
-        return member.status == discord.enums.Status.online
 
     @commands.Cog.listener("on_message")
     async def listen(self, message: discord.Message) -> None:
@@ -264,7 +244,7 @@ class ChatGPT(commands.Cog):
         if message.channel.id not in self._history:
             self._history[message.channel.id] = []
 
-        author: str = self._get_author(message)
+        author: str = self._bot.get_user_name(message.author)
 
         self._history[message.channel.id].append(
             ChatCompletionUserMessageParam(
@@ -276,7 +256,7 @@ class ChatGPT(commands.Cog):
 
         must_respond: bool = self._must_respond(message)
 
-        if not must_respond and not self._is_active():
+        if not must_respond and not self._bot.is_active():
             return
 
         if must_respond:
@@ -288,29 +268,6 @@ class ChatGPT(commands.Cog):
         if response is not None:
             await message.reply(response)
 
-    def _get_author(self, message: discord.Message) -> str:
-        """Get the name of the author of the message.
-
-        If the author has an assigned nickname for the guild, use it.
-
-        Otherwise, return the display name for the author. The display name defaults to the username
-        if it is not configured.
-
-        Parameters
-        ----------
-        message : discord.Message
-            The message that contains the author.
-
-        Returns
-        -------
-        str
-            The name of the author.
-        """
-
-        if hasattr(message.author, "nick") and message.author.nick:
-            return message.author.nick
-
-        return message.author.display_name
 
     def _must_respond(self, message: discord.Message) -> bool:
         """Determine if the bot *must* respond to the given `message`.
@@ -373,7 +330,7 @@ class ChatGPT(commands.Cog):
                 model=config.chatgpt_model,
                 temperature=config.chatgpt_temperature,
                 messages=self._get_chat_context(message, must_respond),
-                user=message.author.name,
+                user=self._bot.get_user_name(message.author),
             )
         except openai.OpenAIError as e:
             log.error("An error occurred while querying the chat service.", exc_info=e)
