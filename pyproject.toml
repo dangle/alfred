@@ -52,10 +52,10 @@ debug = { cmd = "alfred", env = { LOG_LEVEL = "DEBUG" }, env_file = ".env" }
 pre_pdb = { shell = "bash -c '{pdm} install &> /dev/null'" }
 pdb = { cmd = "python -m pdb src/alfred/cli.py", env_file = ".env" }
 test = "pytest -vvra"
-extract-strings = { shell = "mkdir locales 2>/dev/null ; find src/ -iname '*.py' | xargs xgettext -d alfred -o locales/alfred.pot --from-code UTF-8" }
+extract-strings = { shell = "mkdir locales 2>/dev/null ; find src/ -iname '*.py' | xargs xgettext --force-po -d alfred -o locales/alfred.pot --from-code UTF-8" }
 new-translation = { shell = "bash -c 'locale=\"{args}\" ; mkdir -p locales/\"${locale:0:2}\"/LC_MESSAGES ; msginit -l \"${locale}\" -o locales/${locale:0:2}/LC_MESSAGES/alfred.po -i locales/alfred.pot --no-translator'" }
 pre_update-translations = "{pdm} extract-strings"
-update-translations = { shell = "bash -c 'for d in locales/*/; do msgmerge --update \"${d}\"LC_MESSAGES/alfred.po locales/alfred.pot; done'" }
+update-translations = { shell = "bash -c 'for d in locales/*/; do msgmerge --update \"${d}\"LC_MESSAGES/alfred.po locales/alfred.pot; rm \"${d}\"LC_MESSAGES/alfred.po~ ; done'" }
 export-translations = { shell = "bash -c 'for d in locales/*/; do msgfmt -o \"${d}\"LC_MESSAGES/alfred.mo \"${d}\"LC_MESSAGES/alfred; done'" }
 update-doc-stubs = "sphinx-apidoc -f -o docs/source src/alfred"
 pre_gen-docs = "{pdm} update-doc-stubs"
