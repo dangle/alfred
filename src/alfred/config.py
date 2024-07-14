@@ -39,6 +39,7 @@ import argparse
 import contextlib
 import copy
 import dataclasses
+import logging
 import os
 import typing
 
@@ -383,6 +384,10 @@ class _Config:
 
         """
         return _("Alfred")
+
+    @property
+    def debugging(self) -> bool:
+        return logging.getLogger().isEnabledFor(logging.DEBUG)
 
     @property
     def version(self) -> str:

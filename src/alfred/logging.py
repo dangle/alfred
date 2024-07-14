@@ -3,11 +3,8 @@
 import contextlib
 import logging
 import os
-import typing
-
-if typing.TYPE_CHECKING:
-    from collections.abc import Generator
-    from typing import Any
+from collections.abc import Generator
+from typing import Any
 
 import structlog
 from structlog.typing import EventDict, Processor, ProcessorReturnValue, WrappedLogger

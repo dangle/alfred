@@ -14,9 +14,13 @@ watch_status : every minute
     Sets the bot presence to idle if it has not been explicitly addressed within the last minute.
 """
 
+import builtins
+import dataclasses
 import datetime
 import enum
-from typing import cast
+import json
+import types
+from typing import Any, cast, get_type_hints
 
 import discord
 import openai
@@ -25,13 +29,21 @@ from discord.ext import commands, tasks
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
+    ChatCompletionMessage,
     ChatCompletionMessageParam,
+    ChatCompletionMessageToolCall,
+    ChatCompletionMessageToolCallParam,
     ChatCompletionSystemMessageParam,
+    ChatCompletionToolMessageParam,
+    ChatCompletionToolParam,
     ChatCompletionUserMessageParam,
 )
+from openai.types.chat.chat_completion_message_tool_call_param import Function
+from openai.types.shared_params import FunctionDefinition
 
 from alfred import bot
 from alfred.config import CommandLineFlag, EnvironmentVariable, config
+from alfred.context import MessageApplicationContext
 from alfred.features import _ai
 from alfred.translation import gettext as _
 
@@ -175,6 +187,12 @@ def setup(bot: bot.Bot) -> None:
     log.info(f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}')
 
 
+@dataclasses.dataclass
+class _Tool:
+    command: discord.ApplicationCommand
+    tool: ChatCompletionToolParam
+
+
 class ChatGPT(commands.Cog):
     """Manages chat interactions and commands in the bot.
 
@@ -196,24 +214,147 @@ class ChatGPT(commands.Cog):
             f" {self._NO_RESPONSE}\n"
         )
         self._explicit_interaction_time: datetime.datetime = datetime.datetime.now(datetime.UTC)
+        self._tools: dict[str, _Tool] = {}
 
-    @commands.Cog.listener("on_ready")
+    @commands.Cog.listener("on_ready", once=True)
+    async def add_tools(self) -> None:
+        """Create a mapping of bot commands to chat service tools."""
+        for command in self._bot.application_commands:
+            try:
+                self._tools[command.name] = _Tool(
+                    command=command,
+                    tool=self._convert_command_to_tool(command),
+                )
+            except ValueError as e:
+                log.debug("Unable to parse type in bot command.", exc_info=e)
+                continue
+
+        log.info(
+            "Tools for the chat service.",
+            tools=self._tools if config.debugging else list(self._tools),
+        )
+
+    def _convert_command_to_tool(
+        self,
+        command: commands.core.ApplicationCommand,
+    ) -> ChatCompletionToolParam:
+        """Convert `command` into a tool that the chat service can call.
+
+        Parameters
+        ----------
+        command : commands.core.ApplicationCommand
+            An `commands.core.ApplicationCommand` already registered to the bot.
+            e.g. a slash command.
+
+        Returns
+        -------
+        ChatCompletionToolParam
+            A tool the chat service is capable of calling.
+
+        Raises
+        ------
+        ValueError
+            Raised when a command cannot be converted to an acceptable format.
+
+        """
+        parameters: dict[str, Any] = {
+            "type": "object",
+            "required": [],
+            "properties": {},
+        }
+
+        for parameter in get_type_hints(command.callback).values():
+            if (
+                not isinstance(parameter, discord.Option)
+                or not parameter.name
+                or parameter.name == "self"
+            ):
+                log.debug(
+                    "skipping parameter",
+                    command=command.name,
+                    parameter=parameter,
+                    parameter_name=getattr(parameter, "name", None),
+                )
+                continue
+
+            prop: dict[str, str | list[str | int | float]] = {
+                "type": self._convert_input_type_to_str(parameter.input_type),
+                "description": parameter.description,
+            }
+
+            if parameter.choices:
+                prop["enum"] = [choice.value for choice in parameter.choices]
+
+            parameters["properties"][parameter.name] = prop
+
+            if parameter.required:
+                parameters["required"].append(parameter.name)
+
+        return ChatCompletionToolParam(
+            function=FunctionDefinition(
+                name=command.name,
+                description=command.callback.__doc__ or "",
+                parameters=parameters,
+            ),
+            type="function",
+        )
+
+    def _convert_input_type_to_str(self, input_type: discord.enums.SlashCommandOptionType) -> str:
+        """Convert `input_type` into a string acceptable to the chat service.
+
+        Parameters
+        ----------
+        input_type : discord.enums.SlashCommandOptionType
+            The input type of the parameter.
+
+        Returns
+        -------
+        str
+            The input type of the parameter in a format the chat service will accept.
+
+        Raises
+        ------
+        ValueError
+            Raised when `input_type` cannot be converted to an acceptable format.
+
+        """
+        match input_type:
+            case builtins.str | discord.enums.SlashCommandOptionType.string:
+                return "string"
+            case builtins.int | discord.enums.SlashCommandOptionType.integer:
+                return "integer"
+            case builtins.float | discord.enums.SlashCommandOptionType.number:
+                return "number"
+            case builtins.bool | discord.enums.SlashCommandOptionType.boolean:
+                return "boolean"
+            case types.NoneType:
+                return "null"
+            case builtins.dict:
+                return "object"
+
+        raise ValueError(
+            f"Unable to convert {input_type!r} to a valid format for the chat service.",
+        )
+
+    @commands.Cog.listener("on_ready", once=True)
     async def begin_status(self) -> None:
         """Set the bot presence to idle on login and start the `self.watch_status` task."""
         if self.watch_status.is_running():
             return
 
+        log.info("Starting bot presence management.")
         await self._bot.change_presence(status=discord.enums.Status.idle)
-
         self.watch_status.start()
 
     @tasks.loop(minutes=1.0)
     async def watch_status(self) -> None:
         """Set the bot presence to idle if it has not recently been explicitly addressed."""
-        if not await self._bot.is_active():
+        if not await (is_active := self._bot.is_active()):
+            await log.adebug("Checking bot presence status.", is_active=is_active)
             return
 
         if datetime.datetime.now(datetime.UTC) >= self._explicit_interaction_time:
+            await log.ainfo("Setting the bot status to idle.")
             await self._bot.change_presence(status=discord.enums.Status.idle)
 
     @commands.Cog.listener("on_message")
@@ -233,6 +374,7 @@ class ChatGPT(commands.Cog):
 
         """
         if message.author.id == self._bot.application_id:
+            log.debug("Bot is the author of the message.", message=message)
             return
 
         if message.channel.id not in self._history:
@@ -250,11 +392,12 @@ class ChatGPT(commands.Cog):
 
         must_respond: bool = self._must_respond(message)
 
-        if not must_respond and not self._bot.is_active():
+        if not must_respond and not await self._bot.is_active():
             return
 
         if must_respond:
             self._explicit_interaction_time = datetime.datetime.now(datetime.UTC)
+            await log.ainfo("Setting the bot status to online.")
             await self._bot.change_presence(status=discord.enums.Status.online)
 
         response: str | None = await self._send_message(message, must_respond=must_respond)
@@ -316,19 +459,26 @@ class ChatGPT(commands.Cog):
 
         ai = cast(openai.AsyncOpenAI, config.ai)
 
+        tools = [tool.tool for tool in self._tools.values()] or openai.NOT_GIVEN
+
         try:
             response: ChatCompletion = await ai.chat.completions.create(
                 model=config.chatgpt_model,
                 temperature=config.chatgpt_temperature,
                 messages=self._get_chat_context(message, must_respond=must_respond),
                 user=self._bot.get_user_name(message.author),
-                tools=[],
+                tools=tools,
             )
+            response_message: ChatCompletionMessage = response.choices[0].message
+
+            if response_message.tool_calls:
+                await self._call_tool(message, response_message)
+                return None
         except openai.OpenAIError as e:
             log.error("An error occurred while querying the chat service.", exc_info=e)
             return None
 
-        assistant_message: str | None = response.choices[0].message.content
+        assistant_message: str | None = response_message.content
 
         if (
             not must_respond
@@ -346,6 +496,93 @@ class ChatGPT(commands.Cog):
             )
 
         return assistant_message
+
+    async def _call_tool(
+        self,
+        message: discord.Message,
+        response_message: ChatCompletionMessage,
+    ) -> None:
+        """Call a tool requested by the chat service and handle responses.
+
+        This calls the tool and then calls the chat service again with the output of the tool.
+        Any responses sent by the tool are delayed and updated with the response from the chat
+        service.
+
+        Parameters
+        ----------
+        message : discord.Message
+            The message containing the request that triggered the tool use.
+        response_message : ChatCompletionMessage
+            The response message that contains the tool to call.
+
+        """
+        response_message.tool_calls = cast(
+            list[ChatCompletionMessageToolCall],
+            response_message.tool_calls,
+        )
+
+        self._history[message.channel.id].append(
+            ChatCompletionAssistantMessageParam(
+                role="assistant",
+                content=message.content,
+                tool_calls=(
+                    [
+                        ChatCompletionMessageToolCallParam(
+                            id=tc.id,
+                            type="function",
+                            function=Function(
+                                name=tc.function.name,
+                                arguments=tc.function.arguments,
+                            ),
+                        )
+                        for tc in response_message.tool_calls
+                    ]
+                    if response_message.tool_calls
+                    else []
+                ),
+            ),
+        )
+
+        tool_call = response_message.tool_calls[0]
+        function = tool_call.function
+        command = self._tools[function.name].command
+
+        async with await MessageApplicationContext.new(
+            self._bot,
+            message,
+            delayed_send=True,
+        ) as ctx:
+            await command(
+                ctx=ctx,
+                **json.loads(function.arguments),
+            )
+
+            self._history[message.channel.id].append(
+                ChatCompletionToolMessageParam(
+                    tool_call_id=tool_call.id,
+                    role="tool",
+                    content=json.dumps([r.serializable() for r in ctx.responses]),
+                ),
+            )
+
+            ai = cast(openai.AsyncOpenAI, config.ai)
+            response: ChatCompletion = await ai.chat.completions.create(
+                model=config.chatgpt_model,
+                temperature=config.chatgpt_temperature,
+                messages=self._get_chat_context(message, must_respond=False),
+                user=self._bot.get_user_name(message.author),
+            )
+            response_message = response.choices[0].message
+
+            self._history[message.channel.id].append(
+                ChatCompletionAssistantMessageParam(
+                    role="assistant",
+                    content=response_message.content,
+                ),
+            )
+
+            if len(ctx.responses) == 1 and response_message.content != message.content:
+                ctx.responses[0].content = response_message.content
 
     def _get_chat_context(
         self,
@@ -387,8 +624,11 @@ class ChatGPT(commands.Cog):
                 ChatCompletionSystemMessageParam(
                     role="system",
                     content=(
+                        "If multiple functions could be returned, pick one instead of asking which"
+                        " function to use.\n"
                         f"{config.chatgpt_system_message or ""}\n"
                         f"{"" if must_respond else self._control_message}"
+                        "If you are returning a file from a function, do *NOT* try to embed it."
                     ),
                 ),
             )
