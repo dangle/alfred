@@ -2,7 +2,10 @@
 
 import gettext as gettext_
 import pathlib
-from typing import Callable
+import typing
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
 
 from . import __project_package__
 
@@ -28,14 +31,13 @@ def gettext(value: str) -> str:
     ----------
     value : str
         The value to translate.
-    """
 
+    """
     return _gettext(value)
 
 
 def bind() -> None:
     """Bind the global `gettext` domain to the bot domain."""
-
     if gettext_.find(_DOMAIN, localedir=_LOCALE_DIR):
         gettext_.bindtextdomain(_DOMAIN, _LOCALE_DIR)
         gettext_.textdomain(_DOMAIN)

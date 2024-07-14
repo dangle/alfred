@@ -6,19 +6,19 @@ import typing
 from .typing import ExitCode
 
 __all__ = (
-    "BotException",
-    "ImageDownloadException",
-    "ConfigurationException",
-    "ReadonlyConfigurationException",
-    "FlagException",
-    "EnvironmentVariableException",
-    "RequiredValueException",
-    "FeatureException",
-    "FeatureNotFoundException",
+    "BotError",
+    "ImageDownloadError",
+    "ConfigurationError",
+    "ReadonlyConfigurationError",
+    "FlagError",
+    "EnvironmentVariableError",
+    "RequiredValueError",
+    "FeatureError",
+    "FeatureNotFoundError",
 )
 
 
-class BotException(Exception):
+class BotError(Exception):
     """A base class used for all errors occurring during bot usage.
 
     Parameters
@@ -34,6 +34,7 @@ class BotException(Exception):
         The message that will be logged to the user describing the error.
     exit_code : ExitCode
         An integer return code that should be returned when the program exits.
+
     """
 
     def __init__(self, message: str, exit_code: ExitCode = None) -> None:
@@ -41,19 +42,20 @@ class BotException(Exception):
         self.message: str = message
         self.exit_code: ExitCode = exit_code
 
-    def __reduce__[T: BotException](self) -> tuple[T, tuple[typing.Any, ...]]:  # type: ignore[name-defined]
-        """Allows instances of this exception to be serialized.
+    def __reduce__[T: BotError](self) -> tuple[T, tuple[typing.Any, ...]]:  # type: ignore[name-defined]
+        """Allow instances of this exception to be serialized.
 
         Returns
         -------
         tuple[T, tuple[typing.Any, ...]]
             A tuple containing the class of this specific instance and another tuple containing all
             attributes that can be serialized.
+
         """
         return (self.__class__, tuple(vars(self).values()))
 
 
-class ImageDownloadException(BotException):
+class ImageDownloadError(BotError):
     """Raised when an image failed to download.
 
     Parameters
@@ -74,6 +76,7 @@ class ImageDownloadException(BotException):
         The URI of the image that failed to download.
     context : dict[str, typing.Any]
         Optional extra information relevant to why the download failed.
+
     """
 
     def __init__(self, image_uri: str, **context: typing.Any) -> None:
@@ -82,7 +85,7 @@ class ImageDownloadException(BotException):
         self.context = context
 
 
-class ConfigurationException(BotException):
+class ConfigurationError(BotError):
     """A base class used for all errors occurring from misconfiguration of the bot.
 
     Parameters
@@ -97,13 +100,14 @@ class ConfigurationException(BotException):
     exit_code : ExitCode
         An integer return code that should be returned when the program exits.
         This is always `os.EX_CONFIG`.
+
     """
 
     def __init__(self, message: str) -> None:
         super().__init__(message, os.EX_CONFIG)
 
 
-class ReadonlyConfigurationException(ConfigurationException):
+class ReadonlyConfigurationError(ConfigurationError):
     """Raised when a function an attempt to change the configuration is made while it is read-only.
 
     Parameters
@@ -118,10 +122,11 @@ class ReadonlyConfigurationException(ConfigurationException):
     exit_code : ExitCode
         An integer return code that should be returned when the program exits.
         This is always `os.EX_CONFIG`.
+
     """
 
 
-class FlagException(ConfigurationException):
+class FlagError(ConfigurationError):
     """Raised when a required command-line flag is missing.
 
     Parameters
@@ -138,6 +143,7 @@ class FlagException(ConfigurationException):
         This is always `os.EX_CONFIG`.
     flag_name : str
         The name of the missing command-line flag.
+
     """
 
     def __init__(self, flag_name: str) -> None:
@@ -145,7 +151,7 @@ class FlagException(ConfigurationException):
         self.var_name: str = flag_name
 
 
-class EnvironmentVariableException(ConfigurationException):
+class EnvironmentVariableError(ConfigurationError):
     """Raised when a required environment variable is missing.
 
     Parameters
@@ -162,6 +168,7 @@ class EnvironmentVariableException(ConfigurationException):
         This is always `os.EX_CONFIG`.
     env_name : str
         The name of the missing environment variable.
+
     """
 
     def __init__(self, env_name: str) -> None:
@@ -169,7 +176,7 @@ class EnvironmentVariableException(ConfigurationException):
         self.env_name: str = env_name
 
 
-class RequiredValueException(ConfigurationException):
+class RequiredValueError(ConfigurationError):
     """Raised when a required configuration value is missing.
 
     This should be raised when both an environment variable and a command-line flag are specified
@@ -198,19 +205,20 @@ class RequiredValueException(ConfigurationException):
         The name of the missing command-line flag.
     env_name : str
         The name of the missing environment variable.
+
     """
 
-    def __init__(self, name, flag_name: str, env_name: str) -> None:
+    def __init__(self, name: str, flag_name: str, env_name: str) -> None:
         super().__init__(
             f"Unable to get required attribute {name}"
-            f" from flag `{flag_name} or environment variable `{env_name}`"
+            f" from flag `{flag_name} or environment variable `{env_name}`",
         )
         self.name: str = name
         self.flag_name: str = flag_name
         self.env_name: str = env_name
 
 
-class FeatureException(BotException):
+class FeatureError(BotError):
     """A base class used for all errors occurring from failures while loading features.
 
     Parameters
@@ -229,6 +237,7 @@ class FeatureException(BotException):
         This is always `os.EX_SOFTWARE`.
     feature : str
         The name of the feature that failed to load.
+
     """
 
     def __init__(self, feature: str, message: str) -> None:
@@ -236,7 +245,7 @@ class FeatureException(BotException):
         self.feature = feature
 
 
-class FeatureNotFoundException(FeatureException):
+class FeatureNotFoundError(FeatureError):
     """Raised when a feature is requested to be loaded but cannot be found.
 
     Parameters
@@ -253,6 +262,7 @@ class FeatureNotFoundException(FeatureException):
         This is always `os.EX_SOFTWARE`
     feature : str
         The name of the feature that could not be found.
+
     """
 
     def __init__(self, feature: str) -> None:

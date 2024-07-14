@@ -30,10 +30,10 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
-from .. import bot
-from ..config import CommandLineFlag, EnvironmentVariable, config
-from ..translation import gettext as _
-from . import _ai
+from alfred import bot
+from alfred.config import CommandLineFlag, EnvironmentVariable, config
+from alfred.features import _ai
+from alfred.translation import gettext as _
 
 __all__ = (
     "__intents__",
@@ -79,8 +79,8 @@ def temperature(value: str) -> float:
     ------
     ValueError
         Raised when `value` cannot be cast to a float or if `value` is not between 0 and 1.
-    """
 
+    """
     temp: float = float(value)
 
     if temp < 0 or temp > 1:
@@ -103,7 +103,7 @@ config(
             "The ChatGPT model to use to power {project_name}'s conversational abilities.\n"
             "If not supplied, {project_name} will look for the CHATGPT_MODEL environment"
             " variable.\n"
-            'If no model is given, the model will default to "{default}".'
+            'If no model is given, the model will default to "{default}".',
         ).format(
             project_name=config.bot_name,
             default=_ChatGPTModels.GPT_4O.value,
@@ -127,7 +127,7 @@ config(
             " hallucinate.\n"
             "If not supplied, {project_name} will look for the CHATGPT_TEMPERATURE environment"
             " variable.\n"
-            "If no temperature is given, the temperature will default to {default}."
+            "If no temperature is given, the temperature will default to {default}.",
         ).format(
             project_name=config.bot_name,
             default=0.2,
@@ -145,7 +145,7 @@ config(
             "A system message determines what role that {project_name} should play and how it"
             " should behave while communicating with users.\n"
             "If not supplied, {project_name} will look for the CHATGPT_SYSTEM_MESSAGE environment"
-            " variable."
+            " variable.",
         ),
     ),
     default=(
@@ -166,8 +166,8 @@ def setup(bot: bot.Bot) -> None:
     ----------
     bot : bot.Bot
         The `bot.Bot` to which to add the feature.
-    """
 
+    """
     if config.ai:
         bot.add_cog(ChatGPT(bot))
         return
@@ -182,6 +182,7 @@ class ChatGPT(commands.Cog):
     ----------
     bot : discord.bot.Bot
         The `bot.Bot` that will be used for running any interpreted commands.
+
     """
 
     # A custom response that the bot may return if it does not believe that it is being addressed.
@@ -194,12 +195,11 @@ class ChatGPT(commands.Cog):
             "If you do not believe a message is intended for you, respond with:"
             f" {self._NO_RESPONSE}\n"
         )
-        self._last_explicit_interaction_time: datetime.datetime = datetime.datetime.now()
+        self._explicit_interaction_time: datetime.datetime = datetime.datetime.now(datetime.UTC)
 
     @commands.Cog.listener("on_ready")
     async def begin_status(self) -> None:
         """Set the bot presence to idle on login and start the `self.watch_status` task."""
-
         if self.watch_status.is_running():
             return
 
@@ -209,20 +209,18 @@ class ChatGPT(commands.Cog):
 
     @tasks.loop(minutes=1.0)
     async def watch_status(self) -> None:
-        """
-        Set the bot presence to idle if it has not been explicitly addressed within the last minute.
-        """
-
+        """Set the bot presence to idle if it has not recently been explicitly addressed."""
         if not await self._bot.is_active():
             return
 
-        if datetime.datetime.now() >= self._last_explicit_interaction_time:
+        if datetime.datetime.now(datetime.UTC) >= self._explicit_interaction_time:
             await self._bot.change_presence(status=discord.enums.Status.idle)
 
     @commands.Cog.listener("on_message")
     async def listen(self, message: discord.Message) -> None:
-        """
-        Listen to private messages and messages in channels the bot is in and optionally return a
+        """Listen and respond to Discord chat messages.
+
+        Listens to private messages and messages in channels the bot is in and optionally returns a
         response from the chat service.
 
         If the message is from a public channel the bot will attempt to determine if the response is
@@ -232,8 +230,8 @@ class ChatGPT(commands.Cog):
         ----------
         message : discord.Message
             The message received in a channel that the bot watches.
-        """
 
+        """
         if message.author.id == self._bot.application_id:
             return
 
@@ -247,7 +245,7 @@ class ChatGPT(commands.Cog):
                 role="user",
                 content=message.content,
                 name=author,
-            )
+            ),
         )
 
         must_respond: bool = self._must_respond(message)
@@ -256,10 +254,10 @@ class ChatGPT(commands.Cog):
             return
 
         if must_respond:
-            self._last_explicit_interaction_time = datetime.datetime.now()
+            self._explicit_interaction_time = datetime.datetime.now(datetime.UTC)
             await self._bot.change_presence(status=discord.enums.Status.online)
 
-        response: str | None = await self._send_message(message, must_respond)
+        response: str | None = await self._send_message(message, must_respond=must_respond)
 
         if response is not None:
             await message.reply(response)
@@ -282,8 +280,8 @@ class ChatGPT(commands.Cog):
         bool
             `True` if the bot *must* respond to the message.
             `False` if the bot *may* respond to the message.
-        """
 
+        """
         if isinstance(message, discord.DMChannel):
             return True
 
@@ -292,7 +290,7 @@ class ChatGPT(commands.Cog):
 
         return any(m.id == self._bot.application_id for m in message.mentions)
 
-    async def _send_message(self, message: discord.Message, must_respond: bool) -> str | None:
+    async def _send_message(self, message: discord.Message, *, must_respond: bool) -> str | None:
         """Send a message to the chat service with historical context and return the response.
 
         If `must_respond` is `False` this will prepend a system message that allows the bot to
@@ -311,8 +309,8 @@ class ChatGPT(commands.Cog):
         str | None
             Returns the response from the chat service if the bot believes that it is being
             addressed.
-        """
 
+        """
         # TODO: This method should take chunks of older messages and convert them into embeddings.
         # TODO: Add a database for history?
 
@@ -322,8 +320,9 @@ class ChatGPT(commands.Cog):
             response: ChatCompletion = await ai.chat.completions.create(
                 model=config.chatgpt_model,
                 temperature=config.chatgpt_temperature,
-                messages=self._get_chat_context(message, must_respond),
+                messages=self._get_chat_context(message, must_respond=must_respond),
                 user=self._bot.get_user_name(message.author),
+                tools=[],
             )
         except openai.OpenAIError as e:
             log.error("An error occurred while querying the chat service.", exc_info=e)
@@ -343,7 +342,7 @@ class ChatGPT(commands.Cog):
                 ChatCompletionAssistantMessageParam(
                     role="assistant",
                     content=message.content,
-                )
+                ),
             )
 
         return assistant_message
@@ -351,6 +350,7 @@ class ChatGPT(commands.Cog):
     def _get_chat_context(
         self,
         message: discord.Message,
+        *,
         must_respond: bool,
     ) -> list[ChatCompletionMessageParam]:
         """Return a list of historical chat messages to send to the chat service.
@@ -377,8 +377,8 @@ class ChatGPT(commands.Cog):
         list[ChatCompletionMessageParam]
             A list of historical messages for the channel along with an optionally prepended system
             message.
-        """
 
+        """
         messages: list[ChatCompletionMessageParam] = self._history[message.channel.id].copy()
 
         if not must_respond or config.chatgpt_system_message:
