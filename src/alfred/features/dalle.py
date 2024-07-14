@@ -11,8 +11,9 @@ Commands
 
 import ast
 import enum
+import http
 import io
-import os.path
+import pathlib
 import urllib.parse
 from typing import cast
 
@@ -22,10 +23,10 @@ import openai
 import structlog
 from discord.ext import commands
 
-from .. import exceptions as exc
-from ..config import config
-from ..translation import gettext as _
-from . import _ai
+from alfred import exceptions as exc
+from alfred.config import config
+from alfred.features import _ai
+from alfred.translation import gettext as _
 
 __all__ = ("setup",)
 
@@ -47,8 +48,8 @@ def setup(bot: discord.Bot) -> None:
     ----------
     bot : bot.Bot
         The `bot.Bot` to which to add the feature.
-    """
 
+    """
     if config.ai:
         bot.add_cog(DallE())
         return
@@ -122,6 +123,8 @@ class DallE(commands.Cog):
 
         Parameters
         ----------
+        ctx : discord.ApplicationContext
+            The discord context for the current command.
         prompt : str
             The prompt to use when generating the image.
         size : str, optional
@@ -132,10 +135,14 @@ class DallE(commands.Cog):
             The quality of the image to generate.
             This must be one of the following: "standard" or "hd".
             If this is not specified it will default to "standard".
-        """
 
+        """
         await self._generate_image(
-            ctx, prompt=prompt, size=size, quality=quality, model=_Model.DALL_E_3.value
+            ctx,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            model=_Model.DALL_E_3.value,
         )
 
     @commands.slash_command(name=_Model.DALL_E_2.value, guild_ids=config.guild_ids)
@@ -171,6 +178,8 @@ class DallE(commands.Cog):
 
         Parameters
         ----------
+        ctx : discord.ApplicationContext
+            The discord context for the current command.
         prompt : str
             The prompt to use when generating the image.
         size : str, optional
@@ -181,10 +190,14 @@ class DallE(commands.Cog):
             The quality of the image to generate.
             This must be one of the following: "standard" or "hd".
             If this is not specified it will default to "standard".
-        """
 
+        """
         await self._generate_image(
-            ctx, prompt=prompt, size=size, quality=quality, model=_Model.DALL_E_2.value
+            ctx,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            model=_Model.DALL_E_2.value,
         )
 
     async def _generate_image(
@@ -200,6 +213,8 @@ class DallE(commands.Cog):
 
         Parameters
         ----------
+        ctx : discord.ApplicationContext
+            The discord context for the current command.
         prompt : str
             The prompt to use when generating the image.
         size : str, optional
@@ -215,8 +230,8 @@ class DallE(commands.Cog):
             The model to use when generating the image.
             This must be one of the following: "dall-e-2" or "dall-e-3".
             If this is not specified it will default to "dall-e-3".
-        """
 
+        """
         await ctx.defer()
 
         log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
@@ -236,7 +251,7 @@ class DallE(commands.Cog):
             await log.awarning(str(e), exc_info=e)
             message: str = self._parse_openai_error(e)
             await ctx.respond(message)
-        except exc.ImageDownloadException as e:
+        except exc.ImageDownloadError as e:
             await log.awarning(str(e), exc_info=e)
             await ctx.respond(_("Unable to download generated image."))
 
@@ -252,16 +267,15 @@ class DallE(commands.Cog):
         -------
         discord.File
             A `discord.File` image that can be sent in the response to the user.
+
         """
+        async with aiohttp.ClientSession() as session, session.get(uri) as resp:
+            if resp.status != http.HTTPStatus.OK:
+                raise exc.ImageDownloadError(uri, response=resp)
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(uri) as resp:
-                if resp.status != 200:
-                    raise exc.ImageDownloadException(uri, response=resp)
-
-                data: bytes = await resp.read()
-                name: str = self._get_image_name(uri)
-                return discord.File(io.BytesIO(data), name)
+            data: bytes = await resp.read()
+            name: str = self._get_image_name(uri)
+            return discord.File(io.BytesIO(data), name)
 
     def _parse_openai_error(self, error: openai.OpenAIError) -> str:
         """Parse the extra error information from an `openai.OpenAIError` object.
@@ -276,8 +290,8 @@ class DallE(commands.Cog):
         -------
         str
             Any extra data from inside the `error` or, failing that, the `error` cast to a `str`.
-        """
 
+        """
         message: str = str(error)
         data_start: int = message.find("{")
         if data_start > -1:
@@ -298,9 +312,9 @@ class DallE(commands.Cog):
         -------
         str
             The name of the image file.
-        """
 
+        """
         parsed: urllib.parse.ParseResult = urllib.parse.urlparse(uri)
         path: str = urllib.parse.unquote_plus(parsed.path)
-        filename: str = os.path.basename(path)
+        filename: str = pathlib.Path(path).name
         return filename

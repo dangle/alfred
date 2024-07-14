@@ -1,5 +1,4 @@
-"""
-Contains functions and attributes for processing command-line flags and environment variables.
+"""Contains functions and attributes for processing command-line flags and environment variables.
 
 Attributes
 ----------
@@ -31,6 +30,7 @@ Examples
 "a value"
 >>> config.list_variable
 ['a', 'b', 'c']
+
 """
 
 from __future__ import annotations
@@ -40,21 +40,27 @@ import contextlib
 import copy
 import dataclasses
 import os
-from typing import Any, Container, Generator, Iterable, Literal, cast
+import typing
 
 import dotenv
 import structlog
 
 from . import __version__
 from .exceptions import (
-    ConfigurationException,
-    EnvironmentVariableException,
-    FlagException,
-    ReadonlyConfigurationException,
-    RequiredValueException,
+    ConfigurationError,
+    EnvironmentVariableError,
+    FlagError,
+    ReadonlyConfigurationError,
+    RequiredValueError,
 )
 from .translation import gettext as _
-from .typing import ArgParseAction, ConfigProcessor
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Container, Generator, Iterable
+    from typing import Any, Literal
+
+    from .typing import ArgParseAction, ConfigProcessor
+
 
 __all__ = (
     "config",
@@ -78,8 +84,8 @@ def csv(value: str) -> list[str]:
     -------
     list[str]
         A list of all values in the comma-separated string.
-    """
 
+    """
     return [v.strip() for v in value.split(",")] if value else []
 
 
@@ -95,6 +101,7 @@ class EnvironmentVariable:
         The expected type of the environment variable. The string value of the environment variable
         will be cast to this type.
         If unsupplied, the value will be returned unchanged.
+
     """
 
     name: str
@@ -117,6 +124,7 @@ class CommandLineFlag:
     short : str | None
         An alias of the command.
         This is often the short optional flag ("-f").
+
     """
 
     name: str
@@ -129,7 +137,7 @@ class CommandLineFlag:
     const: Any = None
     help: str | None = None
     metavar: str | None = None
-    nargs: int | Literal["*"] | Literal["?"] | Literal["+"] | None = None
+    nargs: int | Literal["*", "?", "+"] | None = None
     type: ConfigProcessor | None = None
     version: str | None = None
 
@@ -152,6 +160,7 @@ class _ConfigValue:
     default : Any, optional
         The value to return if neither the environment variable nor the command-line flag were
         given.
+
     """
 
     name: str
@@ -176,8 +185,8 @@ class _ConfigValue:
         ConfigurationException
             Raised when the an attempt to access the value is made before the configuration has been
             loaded, it is a required value, and there is no default value set.
-        """
 
+        """
         if self._is_computed:
             return self._computed_value
 
@@ -185,10 +194,12 @@ class _ConfigValue:
             return self.default
 
         if self.required:
-            raise ConfigurationException(
+            raise ConfigurationError(
                 f"Configuration attribute `{self.name}` is required but the configuration has not"
-                " yet been loaded."
+                " yet been loaded.",
             )
+
+        return None
 
     @value.setter
     def value(self, value: Any) -> None:
@@ -198,8 +209,8 @@ class _ConfigValue:
         ----------
         value : Any
             The processed value to return.
-        """
 
+        """
         self._is_computed = True
         self._computed_value = value
 
@@ -231,8 +242,8 @@ class _Config:
         ConfigurationException
             Raised when the an attempt to access the value is made before the configuration has been
             loaded, it is a required value, and there is no default value set.
-        """
 
+        """
         if name not in vars(self)["_config"]:
             return None
 
@@ -247,12 +258,12 @@ class _Config:
             The name of the attribute to set.
         value : _ConfigValue
             The configured value that will be stored in the attribute.
-        """
 
+        """
         if vars(self)["_is_readonly"]:
-            raise ReadonlyConfigurationException(
+            raise ReadonlyConfigurationError(
                 f"Unable to set configuration attribute {name} while the configuration is"
-                " read-only."
+                " read-only.",
             )
 
         vars(self)["_config"][name] = value
@@ -277,8 +288,8 @@ class _Config:
         ConfigurationException
             Raised when the an attempt to access the value is made before the configuration has been
             loaded, it is a required value, and there is no default value set.
-        """
 
+        """
         return vars(self)["__getattr__"](name)
 
     def __setitem__(self, name: str, value: _ConfigValue) -> None:
@@ -290,8 +301,8 @@ class _Config:
             The name of the attribute to set.
         value : _ConfigValue
             The configured value that will be stored in the attribute.
-        """
 
+        """
         vars(self)["__setattr__"](name, value)
 
     @property
@@ -302,8 +313,8 @@ class _Config:
         -------
         dict[str, Any]
             A map of configuration attribute names to `_ConfigValue` objects
-        """
 
+        """
         return vars(self)["_config"]
 
     def __call__(
@@ -338,8 +349,8 @@ class _Config:
         ------
         ValueError
             Raised if `name` is an empty string or neither`flag` nor `env` are specified.
-        """
 
+        """
         if vars(self)["_is_readonly"]:
             return
 
@@ -369,8 +380,8 @@ class _Config:
         -------
         str
             The translated bot name.
-        """
 
+        """
         return _("Alfred")
 
     @property
@@ -381,8 +392,8 @@ class _Config:
         -------
         str
             The bot version.
-        """
 
+        """
         return __version__
 
     @property
@@ -396,7 +407,6 @@ class _Config:
         Setting the configuration to read-only prevents computed values from being overwritten by
         non-computed values.
         """
-
         vars(self)["_is_readonly"] = True
         try:
             yield
@@ -411,8 +421,8 @@ class _Config:
         -------
         bool
             `True` if the configuration has been loaded, else `False`.
-        """
 
+        """
         return vars(self)["_is_loaded"]
 
     def load(self, *args: Any, **kwargs: Any) -> None:
@@ -426,11 +436,11 @@ class _Config:
             All keyword arguments are passed to `argparse.ArgumentParser`.
 
         See: https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser
-        """
 
+        """
         if vars(self)["_is_readonly"]:
-            raise ReadonlyConfigurationException(
-                "Unable to load the configuration while the configuration is read-only."
+            raise ReadonlyConfigurationError(
+                "Unable to load the configuration while the configuration is read-only.",
             )
 
         dotenv.load_dotenv()
@@ -439,7 +449,7 @@ class _Config:
         self._load_env()
 
         uncomputed_config_values: Iterable[_ConfigValue] = (
-            urcv for urcv in self.config.values() if not urcv._is_computed
+            urcv for urcv in self.config.values() if not urcv._is_computed  # noqa: SLF001
         )
         for cv in uncomputed_config_values:
             if cv.default is not None:
@@ -448,15 +458,15 @@ class _Config:
 
             if cv.required:
                 if cv.env and cv.flag:
-                    raise RequiredValueException(
+                    raise RequiredValueError(
                         name=cv.name,
                         env_name=cv.env.name,
                         flag_name=cv.flag.name,
                     )
                 if cv.env:
-                    raise EnvironmentVariableException(cv.env.name)
+                    raise EnvironmentVariableError(cv.env.name)
                 if cv.flag:
-                    raise FlagException(cv.flag.name)
+                    raise FlagError(cv.flag.name)
 
         vars(self)["_is_loaded"] = True
 
@@ -471,18 +481,18 @@ class _Config:
             All keyword arguments are passed to `argparse.ArgumentParser`.
 
         See: https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser
-        """
 
+        """
         kwargs["exit_on_error"] = not vars(self)["_is_loaded"]
         parser = argparse.ArgumentParser(*args, **kwargs)
 
         flag_config_values: tuple[_ConfigValue, ...] = tuple(
-            cast(_ConfigValue, cv) for cv in self.config.values() if cv.flag
+            typing.cast(_ConfigValue, cv) for cv in self.config.values() if cv.flag
         )
 
         for cv in flag_config_values:
             # Inform mypy that this cannot be None
-            cv.flag = cast(CommandLineFlag, cv.flag)
+            cv.flag = typing.cast(CommandLineFlag, cv.flag)
 
             kw: dict[str, Any] = copy.copy(vars(cv.flag))
             del kw["name"]
@@ -512,13 +522,12 @@ class _Config:
 
     def _load_env(self) -> None:
         """Load and parse all configured environment variables."""
-
         env_config_values: Iterable[_ConfigValue] = (
-            cv for cv in self.config.values() if cv.env and not cv._is_computed
+            cv for cv in self.config.values() if cv.env and not cv._is_computed  # noqa: SLF001
         )
         for cv in env_config_values:
             # Inform mypy that this cannot be None
-            cv.env = cast(EnvironmentVariable, cv.env)
+            cv.env = typing.cast(EnvironmentVariable, cv.env)
 
             if cv.env.name and cv.env.name in os.environ:
                 if cv.env.type is None:
@@ -540,11 +549,11 @@ class _Config:
         ------
         ReadonlyConfigurationException
             Raised if this is called while in the `config.readonly` context manager.
-        """
 
+        """
         if vars(self)["_is_readonly"]:
-            raise ReadonlyConfigurationException(
-                "Unable to unload the configuration while the configuration is read-only."
+            raise ReadonlyConfigurationError(
+                "Unable to unload the configuration while the configuration is read-only.",
             )
 
         del vars(self)["_config"]
@@ -558,8 +567,8 @@ class _Config:
         ----------
         name : str
             The name of the configuration attribute to delete.
-        """
 
+        """
         del vars(self)["_config"][name]
 
 

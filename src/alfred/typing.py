@@ -8,9 +8,14 @@ ConfigProcessor : type
     A function that can be used for configuring new attributes for the bot.
 ExitCode : type
     The value returned when the program exits.
+
 """
 
-from typing import Any, Callable, Literal
+import typing
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any, Literal
 
 __all__ = (
     "ConfigProcessor",

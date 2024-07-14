@@ -3,7 +3,11 @@
 import contextlib
 import logging
 import os
-from typing import Any, Generator
+import typing
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Generator
+    from typing import Any
 
 import structlog
 from structlog.typing import EventDict, Processor, ProcessorReturnValue, WrappedLogger
@@ -76,8 +80,8 @@ def configure_logging(min_level: int | None = None) -> None:
     min_level : int, optional
         The minimum logging level to log.
         These are values from the stdlib logging package, such as `logging.INFO`.
-    """
 
+    """
     structlog.reset_defaults()
 
     if min_level is None:
@@ -87,11 +91,11 @@ def configure_logging(min_level: int | None = None) -> None:
     shared_processors = _SHARED_PROCESSORS
 
     if min_level == logging.DEBUG:
-        shared_processors = _SHARED_PROCESSORS + [structlog.processors.dict_tracebacks]
+        shared_processors = [*_SHARED_PROCESSORS, structlog.processors.dict_tracebacks]
 
     structlog.configure(
-        processors=shared_processors
-        + [
+        processors=[
+            *shared_processors,
             structlog.stdlib.filter_by_level,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
@@ -114,7 +118,7 @@ def configure_logging(min_level: int | None = None) -> None:
         root_logger.removeHandler(root_logger.handlers[0])
     root_logger.addHandler(handler)
     root_logger.setLevel(min_level)
-    logging.captureWarnings(True)
+    logging.captureWarnings(capture=True)
 
 
 class LogCapture:
@@ -130,6 +134,7 @@ class LogCapture:
         This object was based on `structlog.testing.LogCapture`. It is not possible to use
         `structlog.testing.LogCapture` in place of this because `structlog.testing.LogCapture`
         alters `event_dict` with the assumption that it is the only processor.
+
     """
 
     def __init__(self) -> None:
@@ -140,7 +145,7 @@ class LogCapture:
         _: WrappedLogger,
         __: str,
         event_dict: EventDict,
-    ):
+    ) -> ProcessorReturnValue:
         """Append the `event_dict` to `self.entries` and drop the event.
 
         Parameters
@@ -152,21 +157,20 @@ class LogCapture:
         event_dict: EventDict
             The structlog event dictionary representing the current status of the logging object
             that would have been output had the event not been dropped.
-        """
 
+        """
         self.entries.append(event_dict)
         raise structlog.DropEvent
 
 
 @contextlib.contextmanager
 def delay_logging() -> Generator[None, None, None]:
-    """A context manager that captures all logs and logs them out when it exits."""
-
+    """Caputre all logs and log them out when the context manager exits."""
     processors: list[Processor] = structlog.get_config()["processors"].copy()
     min_level: int = logging.getLogger().level
 
     capture: LogCapture = LogCapture()
-    structlog.configure(processors=processors + [capture])
+    structlog.configure(processors=[*processors, capture])
     is_exiting = False
 
     try:
@@ -177,7 +181,7 @@ def delay_logging() -> Generator[None, None, None]:
     finally:
         if not is_exiting:
             configure_logging(min_level)
-            logger = structlog.get_logger().bind()._logger
+            logger = structlog.get_logger().bind()._logger  # noqa: SLF001
             for ed in capture.entries:
                 level_name: str = ed[0][0]["level"]
                 getattr(logger, level_name)(*ed[0], **ed[1])

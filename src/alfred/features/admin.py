@@ -21,10 +21,10 @@ Commands
 import discord
 from discord.ext import commands
 
-from .. import bot
-from ..config import config
-from ..features import features
-from ..translation import gettext as _
+from alfred import bot
+from alfred.config import config
+from alfred.features import features
+from alfred.translation import gettext as _
 
 __all__ = (
     "__intents__",
@@ -46,8 +46,8 @@ def setup(bot: bot.Bot) -> None:
     ----------
     bot : bot.Bot
         The `bot.Bot` to which to add the feature.
-    """
 
+    """
     bot.add_cog(Admin(bot))
 
 
@@ -58,6 +58,7 @@ class Admin(commands.Cog):
     ----------
     bot : Bot
         A Discord bot that will use the commands and listeners in this Cog.
+
     """
 
     def __init__(self, bot: bot.Bot) -> None:
@@ -71,8 +72,8 @@ class Admin(commands.Cog):
         -------
         set[str]
             The set of all known features other than this one.
-        """
 
+        """
         return features.all_features - {__feature__}
 
     @property
@@ -83,8 +84,8 @@ class Admin(commands.Cog):
         -------
         set[str]
             The set of all enabled features other than this one.
-        """
 
+        """
         return self._bot.enabled_features - {__feature__}
 
     @property
@@ -95,8 +96,8 @@ class Admin(commands.Cog):
         -------
         set[str]
             The set of all disabled features other than this one.
-        """
 
+        """
         return self._bot.disabled_features - {__feature__}
 
     @commands.slash_command(guild_ids=config.guild_ids)
@@ -108,8 +109,8 @@ class Admin(commands.Cog):
         ----------
         ctx : discord.ApplicationContext
             The discord context for the current command.
-        """
 
+        """
         if not self.enabled_features:
             await ctx.respond(_("There are no enabled features."))
             return
@@ -117,8 +118,8 @@ class Admin(commands.Cog):
         enabled_features = ", ".join(sorted(self.enabled_features))
         await ctx.respond(
             _("The following features are enabled: {enabled_features}").format(
-                enabled_features=enabled_features
-            )
+                enabled_features=enabled_features,
+            ),
         )
 
     @commands.slash_command(guild_ids=config.guild_ids)
@@ -130,8 +131,8 @@ class Admin(commands.Cog):
         ----------
         ctx : discord.ApplicationContext
             The discord context for the current command.
-        """
 
+        """
         if not self.disabled_features:
             await ctx.respond(_("There are no disabled features."))
             return
@@ -139,8 +140,8 @@ class Admin(commands.Cog):
         disabled_features = ", ".join(sorted(self.disabled_features))
         await ctx.respond(
             _("The following features are disabled: {disabled_features}").format(
-                disabled_features=disabled_features
-            )
+                disabled_features=disabled_features,
+            ),
         )
 
     @commands.slash_command(guild_ids=config.guild_ids)
@@ -155,8 +156,8 @@ class Admin(commands.Cog):
             The discord context for the current command.
         feature : str
             The name of the feature to enable.
-        """
 
+        """
         if feature not in self.all_features:
             await ctx.respond(_("Feature not found: {feature}").format(feature=feature))
             return
@@ -182,8 +183,8 @@ class Admin(commands.Cog):
             The discord context for the current command.
         feature : str
             The name of the feature to disable.
-        """
 
+        """
         if feature not in self.all_features:
             await ctx.respond(_("Feature not found: {feature}").format(feature=feature))
             return
@@ -215,8 +216,8 @@ class Admin(commands.Cog):
         feature : str | None, optional
             The name of the feature to reload.
             If not specified, the entire bot will be reloaded.
-        """
 
+        """
         if not feature:
             await self._bot.reload()
             await ctx.respond(_("Reloaded bot features"))

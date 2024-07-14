@@ -2,18 +2,21 @@
 
 Attributes
 ----------
-features : _Features
+features : Features
     An instance of an object that can discover new features and return a list of all known features.
+
 """
 
 import importlib
 import sys
-from importlib.metadata import entry_points
-from types import ModuleType
+import typing
 
 import structlog
 
-from ..config import config
+from alfred.config import config
+
+if typing.TYPE_CHECKING:
+    from types import ModuleType
 
 __all__ = ("features",)
 
@@ -21,7 +24,7 @@ __all__ = ("features",)
 _ENTRY_POINT_GROUP: str = __name__
 
 
-class _Features:
+class Features:
     """Finds bot extension modules and maps feature names to modules."""
 
     def __init__(self) -> None:
@@ -30,7 +33,6 @@ class _Features:
 
     def discover_features(self) -> None:
         """Find and load new bot extension modules."""
-
         log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
         log.info("Looking for new features.")
@@ -38,7 +40,7 @@ class _Features:
         self._lookup_by_features = {}
         self._lookup_by_modules = {}
 
-        for ep in entry_points(group=_ENTRY_POINT_GROUP):
+        for ep in importlib.metadata.entry_points(group=_ENTRY_POINT_GROUP):
             try:
                 module: ModuleType
                 if ep.module in sys.modules:
@@ -47,7 +49,7 @@ class _Features:
                     module = ep.load()
             except Exception as e:
                 if config.is_loaded:
-                    log.exception(
+                    log.error(
                         "An exception occurred while loading a feature module.",
                         exc_info=e,
                     )
@@ -68,8 +70,8 @@ class _Features:
         -------
         set[str]
             A set containing all unique feature names that have been found.
-        """
 
+        """
         return set(self._lookup_by_features.keys())
 
     def get_feature_by_module_name(self, module_name: str) -> str:
@@ -89,8 +91,8 @@ class _Features:
         ------
         KeyError
             Raised if `module_name` is not known.
-        """
 
+        """
         return self._lookup_by_modules[module_name]
 
     def get_module_name_by_feature(self, feature: str) -> str:
@@ -110,10 +112,10 @@ class _Features:
         ------
         KeyError
             Raised if `feature` is not known.
-        """
 
+        """
         return self._lookup_by_features[feature]
 
 
 # The global object to be used for accessing the list of available features.
-features = _Features()
+features = Features()

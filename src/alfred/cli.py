@@ -9,9 +9,8 @@ import sys
 
 import structlog
 
-from . import __project_package__, bot
+from . import __project_package__, bot, logging, translation
 from . import exceptions as exc
-from . import logging, translation
 from .config import CommandLineFlag, config
 from .features import features
 from .translation import gettext as _
@@ -31,7 +30,6 @@ config(
 
 def run() -> None:
     """Configure and start the program."""
-
     translation.bind()
     logging.configure_logging()
 
@@ -44,12 +42,12 @@ def run() -> None:
                 prog=__project_package__,
                 description=_(
                     "{project_name} is an extensible Discord bot that can use ChatGPT to respond"
-                    " conversationally and run commands on behalf of the server users."
+                    " conversationally and run commands on behalf of the server users.",
                 ).format(project_name=config.bot_name),
                 formatter_class=argparse.RawTextHelpFormatter,
             )
         bot.run()
-    except exc.BotException as e:
+    except exc.BotError as e:
         log.error(str(e))
         sys.exit(e.exit_code)
     except Exception as e:

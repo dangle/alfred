@@ -2,15 +2,19 @@
 
 import importlib
 import sys
-from typing import Any, Iterable
+import typing
 
 import discord
 import structlog
 
 from .config import CommandLineFlag, EnvironmentVariable, config, csv
-from .exceptions import FeatureNotFoundException
+from .exceptions import FeatureNotFoundError
 from .features import features as features_
 from .translation import gettext as _
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Iterable
+    from typing import Any
 
 __all__ = (
     "Bot",
@@ -26,7 +30,7 @@ config(  # The token used by the bot to authenticate with Discord.
         "--discord-token",
         help=_(
             "The Discord authentication token for {project_name}.\n"
-            "If not supplied, {project_name} will look for the DISCORD_TOKEN environment variable."
+            "If not supplied, {project_name} will look for the DISCORD_TOKEN environment variable.",
         ).format(project_name=config.bot_name),
     ),
     required=True,
@@ -46,7 +50,7 @@ config(
             "If not supplied, {project_name} will look for the DISCORD_GUILD_IDS environment"
             " variable.\n"
             "If no guild IDs are given, commands will be registered as global and will take up to"
-            " an hour to become usable."
+            " an hour to become usable.",
         ).format(project_name=config.bot_name),
     ),
     required=False,
@@ -65,7 +69,7 @@ config(
             "{project_name} features to enable.\n"
             "If not supplied, {project_name} will look for the ALFRED_ENABLED_FEATURES environment"
             " variable.\n"
-            "If no features are given, all features will be enabled by default."
+            "If no features are given, all features will be enabled by default.",
         ).format(project_name=config.bot_name),
         metavar="FEATURES",
     ),
@@ -77,7 +81,7 @@ config(
         name="--disable-admin-commands",
         action="store_true",
         help=_("Disable the Discord commands for administrating {project_name}.").format(
-            project_name=config.bot_name
+            project_name=config.bot_name,
         ),
     ),
 )
@@ -99,6 +103,7 @@ class Bot(discord.Bot):
         the `__intents__` attributes from all of the features.
     kwargs : dict[str, Any]
         Keyword arguments to be passed to the `discord.Bot.__init__` method.
+
     """
 
     def __init__(
@@ -108,15 +113,15 @@ class Bot(discord.Bot):
         disable_admin_commands: bool = False,
         **kwargs: Any,
     ) -> None:
-        from .features.admin import __feature__ as _BOT_ADMIN_FEATURE
+        from .features.admin import __feature__
 
         features_to_enable: set[str] = set(
-            features if features is not None else features_.all_features
-        ) | (set() if disable_admin_commands else {_BOT_ADMIN_FEATURE})
+            features if features is not None else features_.all_features,
+        ) | (set() if disable_admin_commands else {__feature__})
 
         for feature in features_to_enable:
             if feature not in features_.all_features:
-                raise FeatureNotFoundException(feature=feature)
+                raise FeatureNotFoundError(feature=feature)
 
         feature_modules: set[str] = {
             features_.get_module_name_by_feature(feature) for feature in features_to_enable
@@ -148,8 +153,8 @@ class Bot(discord.Bot):
         discord.Intents
             A `discord.Intents` value that containts the total of all of the `__intents__` from each
             feature ORed together.
-        """
 
+        """
         intents: discord.Intents = discord.Intents.none()
 
         for module_name in feature_modules:
@@ -168,12 +173,11 @@ class Bot(discord.Bot):
         -------
         set[str]
             The set of all enabled features.
-        """
 
-        enabled_features: set[str] = set(
-            features_.get_feature_by_module_name(module_name)
-            for module_name in self.extensions.keys()
-        )
+        """
+        enabled_features: set[str] = {
+            features_.get_feature_by_module_name(module_name) for module_name in self.extensions
+        }
         log.debug(f"Enabled features: {", ".join(enabled_features)}")
         return enabled_features
 
@@ -185,8 +189,8 @@ class Bot(discord.Bot):
         -------
         set[str]
             The set of all disabled features.
-        """
 
+        """
         disabled_features: set[str] = features_.all_features.difference(self.enabled_features)
         log.debug(f"Disabled features: {", ".join(disabled_features)}")
         return disabled_features
@@ -203,14 +207,14 @@ class Bot(discord.Bot):
         ------
         FeatureNotFoundException
             Raised when the requested feature cannot be found to be enabled.
-        """
 
+        """
         if feature in self.enabled_features:
             await log.adebug(f"Feature already enabled: {feature}", feature=feature)
             return
 
         if feature not in features_.all_features:
-            raise FeatureNotFoundException(feature)
+            raise FeatureNotFoundError(feature)
 
         module_name: str = features_.get_module_name_by_feature(feature)
         await log.ainfo(
@@ -239,14 +243,14 @@ class Bot(discord.Bot):
         -----
         This does not *actually* work because of a bug in pycord.
         See: https://github.com/Pycord-Development/pycord/issues/2015
-        """
 
+        """
         if feature in self.disabled_features:
             await log.adebug(f"Feature already disabled: {feature}", feature=feature)
             return
 
         if feature not in features_.all_features:
-            raise FeatureNotFoundException(feature)
+            raise FeatureNotFoundError(feature)
 
         module_name: str = features_.get_module_name_by_feature(feature)
         await log.ainfo(
@@ -269,8 +273,8 @@ class Bot(discord.Bot):
         FeatureNotFoundException
             Raised when the requested feature is not currently enabled and cannot be found to be
             enabled.
-        """
 
+        """
         if feature in self.enabled_features:
             module_name: str = features_.get_module_name_by_feature(feature)
             await log.ainfo(
@@ -308,8 +312,8 @@ class Bot(discord.Bot):
             The set of features to enable after reloading the bot.
             If not given the bot will try to re-enable the features that were enabled before the
             reload.
-        """
 
+        """
         await log.ainfo("Reloading all bot extensions.")
 
         for module_name in tuple(self.extensions.keys()):
@@ -339,8 +343,8 @@ class Bot(discord.Bot):
         -------
             `True` if the bot has a presence that is set to `discord.enums.Status.online`.
             `False` if the bot has any other presence value.
-        """
 
+        """
         if not self._bot.application_id or not self._bot.guilds:
             return False
 
@@ -369,15 +373,15 @@ class Bot(discord.Bot):
         -------
         str
             The name of the user.
-        """
 
+        """
         return user.nick if hasattr(user, "nick") and user.nick else user.display_name
 
     async def on_application_command_error(
         self,
         ctx: discord.ApplicationContext,
         exception: discord.DiscordException,
-    ):
+    ) -> None:
         """Catch all application command errors and log them.
 
         Parameters
@@ -386,8 +390,8 @@ class Bot(discord.Bot):
             The context for the current command.
         exception : discord.DiscordException
             The exception raised from the application command.
-        """
 
+        """
         if self._event_handlers.get("on_application_command_error", None):
             return
 
@@ -413,8 +417,8 @@ def run(**kwargs: Any) -> None:
     ----------
     kwargs : dict[str, Any]
         Keyword values to be passed to the `Bot` when it is initialized.
-    """
 
+    """
     Bot(
         features=config.bot_enabled_features,
         disable_admin_commands=config.disable_admin_commands,
