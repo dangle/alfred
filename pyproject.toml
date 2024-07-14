@@ -4,8 +4,8 @@ dynamic = ["version"]
 description = "Default template for PDM package"
 authors = [{ name = "Melissa Nuño", email = "melissa@dangle.dev" }]
 dependencies = [
-    "py-cord[speed,voice]>=2.5.0",
-    "openai>=1.35.10",
+    "py-cord[speed,voice]>=2.6.0",
+    "openai>=1.35.13",
     "python-dotenv>=1.0.1",
     "structlog>=24.2.0",
     "aiohttp[speedups]>=3.9.5",
