@@ -63,7 +63,8 @@
           "isort.args": ["--profile", "black", "-l", "100"],
           "editor.rulers": [100]
         },
-        "ruff.nativeServer": true
+        "ruff.nativeServer": true,
+        "autoDocstring.docstringFormat": "numpy"
       }
     }
   }
