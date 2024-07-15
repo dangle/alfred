@@ -573,7 +573,7 @@ class ChatGPT(commands.Cog):
             message,
             delayed_send=True,
         ) as ctx:
-            log.info("Calling tool.", tool=tool_call.id)
+            log.info("Calling tool.", tool=function.name)
 
             await command(
                 ctx=ctx,
