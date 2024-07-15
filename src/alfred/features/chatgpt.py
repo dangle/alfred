@@ -255,7 +255,6 @@ class ChatGPT(commands.Cog):
         except ValueError as e:
             log.debug("Unable to parse type in bot command.", exc_info=e)
 
-
     def _convert_command_to_tool(
         self,
         command: commands.core.ApplicationCommand,
