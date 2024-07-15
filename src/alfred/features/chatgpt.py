@@ -649,7 +649,8 @@ class ChatGPT(commands.Cog):
                         " function to use.\n"
                         f"{config.chatgpt_system_message or ""}\n"
                         f"{"" if must_respond else self._control_message}"
-                        "If you are returning a file from a function, do *NOT* try to embed it."
+                        "If you are get a file from a function, do *NOT* try to embed it with"
+                        " markdown syntax.\n"
                     ),
                 ),
             )
