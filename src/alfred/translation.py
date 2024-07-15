@@ -2,10 +2,7 @@
 
 import gettext as gettext_
 import pathlib
-import typing
-
-if typing.TYPE_CHECKING:
-    from collections.abc import Callable
+from collections.abc import Callable
 
 from . import __project_package__
 

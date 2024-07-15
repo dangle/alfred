@@ -232,9 +232,9 @@ class DallE(commands.Cog):
             If this is not specified it will default to "dall-e-3".
 
         """
-        await ctx.defer()
-
         log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
+
+        await ctx.defer()
 
         try:
             response: openai.types.ImagesResponse = await config.ai.images.generate(

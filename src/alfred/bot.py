@@ -2,7 +2,8 @@
 
 import importlib
 import sys
-import typing
+from collections.abc import Iterable
+from typing import Any
 
 import discord
 import structlog
@@ -11,10 +12,6 @@ from .config import CommandLineFlag, EnvironmentVariable, config, csv
 from .exceptions import FeatureNotFoundError
 from .features import features as features_
 from .translation import gettext as _
-
-if typing.TYPE_CHECKING:
-    from collections.abc import Iterable
-    from typing import Any
 
 __all__ = (
     "Bot",
