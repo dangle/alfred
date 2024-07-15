@@ -291,7 +291,7 @@ class ChatGPT(commands.Cog):
                 or parameter.name == "self"
             ):
                 log.debug(
-                    "skipping parameter",
+                    "Skipping parameter.",
                     command=command.name,
                     parameter=parameter,
                     parameter_name=getattr(parameter, "name", None),
