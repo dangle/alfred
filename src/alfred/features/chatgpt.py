@@ -220,19 +220,41 @@ class ChatGPT(commands.Cog):
     async def add_tools(self) -> None:
         """Create a mapping of bot commands to chat service tools."""
         for command in self._bot.application_commands:
-            try:
-                self._tools[command.name] = _Tool(
-                    command=command,
-                    tool=self._convert_command_to_tool(command),
-                )
-            except ValueError as e:
-                log.debug("Unable to parse type in bot command.", exc_info=e)
-                continue
+            await self.add_tool(command)
 
         log.info(
             "Tools for the chat service.",
             tools=self._tools if config.debugging else list(self._tools),
         )
+
+    async def add_tool(
+        self,
+        command: discord.ApplicationCommand | discord.SlashCommandGroup,
+    ) -> None:
+        """Add `command` to the list of tools for the chat service.
+
+        If command is actually a command group, add subcommands recursively.
+
+        Parameters
+        ----------
+        command : discord.ApplicationCommand | discord.SlashCommandGroup
+            An `commands.core.ApplicationCommand` already registered to the bot.
+            e.g. a slash command.
+
+        """
+        if isinstance(command, discord.SlashCommandGroup):
+            for cmd in command.walk_commands():
+                await self.add_tool(cmd)
+            return
+
+        try:
+            self._tools[command.qualified_name.replace(" ", "__")] = _Tool(
+                command=command,
+                tool=self._convert_command_to_tool(command),
+            )
+        except ValueError as e:
+            log.debug("Unable to parse type in bot command.", exc_info=e)
+
 
     def _convert_command_to_tool(
         self,
@@ -292,7 +314,7 @@ class ChatGPT(commands.Cog):
 
         return ChatCompletionToolParam(
             function=FunctionDefinition(
-                name=command.name,
+                name=command.qualified_name.replace(" ", "__"),
                 description=command.callback.__doc__ or "",
                 parameters=parameters,
             ),

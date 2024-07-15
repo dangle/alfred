@@ -61,6 +61,11 @@ class Admin(commands.Cog):
 
     """
 
+    admin = discord.SlashCommandGroup(
+        "admin",
+        f"Commands for administering {config.bot_name}.",
+    )
+
     def __init__(self, bot: bot.Bot) -> None:
         self._bot = bot
 
@@ -100,7 +105,7 @@ class Admin(commands.Cog):
         """
         return self._bot.disabled_features - {__feature__}
 
-    @commands.slash_command(guild_ids=config.guild_ids)
+    @admin.command(guild_ids=config.guild_ids)
     @commands.has_permissions(administrator=True)
     async def enabled(self, ctx: discord.ApplicationContext) -> None:
         """List all enabled features.
@@ -122,7 +127,7 @@ class Admin(commands.Cog):
             ),
         )
 
-    @commands.slash_command(guild_ids=config.guild_ids)
+    @admin.command(guild_ids=config.guild_ids)
     @commands.has_permissions(administrator=True)
     async def disabled(self, ctx: discord.ApplicationContext) -> None:
         """List all disabled features.
@@ -144,7 +149,7 @@ class Admin(commands.Cog):
             ),
         )
 
-    @commands.slash_command(guild_ids=config.guild_ids)
+    @admin.command(guild_ids=config.guild_ids)
     @commands.has_permissions(administrator=True)
     @discord.option(_("feature"), str, required=True, parameter_name="feature")
     async def enable(self, ctx: discord.ApplicationContext, *, feature: str) -> None:
@@ -171,7 +176,7 @@ class Admin(commands.Cog):
 
         await ctx.respond(_("Feature enabled: {feature}").format(feature=feature))
 
-    @commands.slash_command(guild_ids=config.guild_ids)
+    @admin.command(guild_ids=config.guild_ids)
     @commands.has_permissions(administrator=True)
     @discord.option(_("feature"), str, required=True, parameter_name="feature")
     async def disable(self, ctx: discord.ApplicationContext, *, feature: str) -> None:
@@ -201,7 +206,7 @@ class Admin(commands.Cog):
 
         await ctx.respond(_("Disabling feature: {feature}").format(feature=feature))
 
-    @commands.slash_command(guild_ids=config.guild_ids)
+    @admin.command(guild_ids=config.guild_ids)
     @commands.has_permissions(administrator=True)
     @discord.option(_("feature"), str, required=False, parameter_name="feature")
     async def reload(self, ctx: discord.ApplicationContext, *, feature: str | None = None) -> None:

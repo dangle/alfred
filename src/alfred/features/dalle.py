@@ -90,7 +90,9 @@ class _DallE3Sizes(enum.StrEnum):
 class DallE(commands.Cog):
     """Manages AI art interactions and commands in the bot."""
 
-    @commands.slash_command(name=_Model.DALL_E_3.value, guild_ids=config.guild_ids)
+    draw = discord.SlashCommandGroup("draw", "Commands for drawing images using DALL-E.")
+
+    @draw.command(name=_Model.DALL_E_3.value, guild_ids=config.guild_ids)
     @discord.option(
         _("prompt"),
         str,
@@ -145,7 +147,7 @@ class DallE(commands.Cog):
             model=_Model.DALL_E_3.value,
         )
 
-    @commands.slash_command(name=_Model.DALL_E_2.value, guild_ids=config.guild_ids)
+    @draw.command(name=_Model.DALL_E_2.value, guild_ids=config.guild_ids)
     @discord.option(
         _("prompt"),
         str,
