@@ -374,7 +374,9 @@ class ChatGPT(commands.Cog):
             await log.adebug("Checking bot presence status.", is_active=is_active)
             return
 
-        if datetime.datetime.now(datetime.UTC) >= self._explicit_interaction_time:
+        if datetime.datetime.now(
+            datetime.UTC,
+        ) >= self._explicit_interaction_time + datetime.timedelta(minutes=1):
             await log.ainfo("Setting the bot status to idle.")
             await self._bot.change_presence(status=discord.enums.Status.idle)
 
