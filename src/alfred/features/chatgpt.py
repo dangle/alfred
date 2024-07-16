@@ -480,20 +480,14 @@ class ChatGPT(commands.Cog):
         # TODO: This method should take chunks of older messages and convert them into embeddings.
         # TODO: Add a database for history?
 
-        ai = cast(openai.AsyncOpenAI, config.ai)
-
         tools = [tool.tool for tool in self._tools.values()] or openai.NOT_GIVEN
 
         try:
-            response: ChatCompletion = await ai.chat.completions.create(
-                model=config.chatgpt_model,
-                temperature=config.chatgpt_temperature,
-                messages=self._get_chat_context(message, must_respond=must_respond),
-                user=self._bot.get_user_name(message.author),
+            response_message = await self._call_chat(
+                message,
                 tools=tools,
+                messages=self._get_chat_context(message, must_respond=must_respond),
             )
-            response_message: ChatCompletionMessage = response.choices[0].message
-
             if response_message.tool_calls:
                 await self._call_tool(message, response_message)
                 return None
@@ -545,27 +539,8 @@ class ChatGPT(commands.Cog):
         )
 
         self._history[message.channel.id].append(
-            ChatCompletionAssistantMessageParam(
-                role="assistant",
-                content=message.content,
-                tool_calls=(
-                    [
-                        ChatCompletionMessageToolCallParam(
-                            id=tc.id,
-                            type="function",
-                            function=Function(
-                                name=tc.function.name,
-                                arguments=tc.function.arguments,
-                            ),
-                        )
-                        for tc in response_message.tool_calls
-                    ]
-                    if response_message.tool_calls
-                    else []
-                ),
-            ),
+            self._get_tool_assistant_message(message, response_message),
         )
-
         tool_call = response_message.tool_calls[0]
         function = tool_call.function
         command = self._tools[function.name].command
@@ -585,7 +560,7 @@ class ChatGPT(commands.Cog):
                 content = json.dumps([r.serializable() for r in ctx.responses])
             except Exception as e:
                 log.error(
-                    "An error occurred calling a tool.",
+                    "An error occurred while calling a tool.",
                     exc_info=e,
                     tool_call_id=tool_call.id,
                     function_name=function.name,
@@ -599,15 +574,11 @@ class ChatGPT(commands.Cog):
                     content=content,
                 ),
             )
-            ai = cast(openai.AsyncOpenAI, config.ai)
-            response: ChatCompletion = await ai.chat.completions.create(
-                model=config.chatgpt_model,
-                temperature=config.chatgpt_temperature,
-                messages=self._get_chat_context(message, must_respond=False),
-                user=self._bot.get_user_name(message.author),
-            )
-            response_message = response.choices[0].message
 
+            response_message = await self._call_chat(
+                message,
+                messages=self._get_chat_context(message, must_respond=False),
+            )
             self._history[message.channel.id].append(
                 ChatCompletionAssistantMessageParam(
                     role="assistant",
@@ -617,6 +588,80 @@ class ChatGPT(commands.Cog):
 
             if len(ctx.responses) == 1 and response_message.content != message.content:
                 ctx.responses[0].content = response_message.content
+
+    def _get_tool_assistant_message(
+        self,
+        message: discord.Message,
+        response_message: ChatCompletionMessage,
+    ) -> ChatCompletionAssistantMessageParam:
+        """Create a message that calls a tool.
+
+        Parameters
+        ----------
+        message : discord.Message
+            The message that triggered the tool call.
+        response_message : ChatCompletionMessage
+            The response from the last call to the chat service.
+
+        Returns
+        -------
+        ChatCompletionAssistantMessageParam
+            A chat parameter to add to the context when calling the chat service.
+
+        """
+        return ChatCompletionAssistantMessageParam(
+            role="assistant",
+            content=message.content,
+            tool_calls=(
+                [
+                    ChatCompletionMessageToolCallParam(
+                        id=tc.id,
+                        type="function",
+                        function=Function(
+                            name=tc.function.name,
+                            arguments=tc.function.arguments,
+                        ),
+                    )
+                    for tc in response_message.tool_calls
+                ]
+                if response_message.tool_calls
+                else []
+            ),
+        )
+
+    async def _call_chat(self, message: discord.Message, **kwargs: Any) -> ChatCompletionMessage:
+        """Call the chat service.
+
+        Parameters
+        ----------
+        message : discord.Message
+            The message that triggered the call to the chat service.
+        kwargs : dict[str, Any]
+            All keywords to pass to the chat service.
+
+        Returns
+        -------
+        ChatCompletionMessage
+            The response message from the chat service.
+
+        """
+        if "model" not in kwargs:
+            kwargs["model"] = config.chatgpt_model
+
+        if "temperature" not in kwargs:
+            kwargs["temperature"] = config.chatgpt_temperature
+
+        if "user" not in kwargs:
+            kwargs["user"] = self._bot.get_user_name(message.author)
+
+        ai = cast(openai.AsyncOpenAI, config.ai)
+        response: ChatCompletion = await ai.chat.completions.create(**kwargs)
+        log.info(
+            "Chat service usage.",
+            usage=response.usage,
+            history_length=len(self._history),
+        )
+        return response.choices[0].message
 
     def _get_chat_context(
         self,
