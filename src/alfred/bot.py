@@ -26,8 +26,7 @@ config(  # The token used by the bot to authenticate with Discord.
     flag=CommandLineFlag(
         "--discord-token",
         help=_(
-            "The Discord authentication token for {project_name}.\n"
-            "If not supplied, {project_name} will look for the DISCORD_TOKEN environment variable.",
+            "The Discord authentication token for {project_name}.",
         ).format(project_name=config.bot_name),
     ),
     required=True,
@@ -44,8 +43,6 @@ config(
         short="-g",
         help=_(
             "The guild (server) IDs of servers on which to enable {project_name} commands.\n"
-            "If not supplied, {project_name} will look for the DISCORD_GUILD_IDS environment"
-            " variable.\n"
             "If no guild IDs are given, commands will be registered as global and will take up to"
             " an hour to become usable.",
         ).format(project_name=config.bot_name),
@@ -64,8 +61,6 @@ config(
         short="-f",
         help=_(
             "{project_name} features to enable.\n"
-            "If not supplied, {project_name} will look for the ALFRED_ENABLED_FEATURES environment"
-            " variable.\n"
             "If no features are given, all features will be enabled by default.",
         ).format(project_name=config.bot_name),
         metavar="FEATURES",

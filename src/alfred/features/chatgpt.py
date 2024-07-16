@@ -115,8 +115,6 @@ config(
         choices=_ChatGPTModels.__members__.values(),
         help=_(
             "The ChatGPT model to use to power {project_name}'s conversational abilities.\n"
-            "If not supplied, {project_name} will look for the CHATGPT_MODEL environment"
-            " variable.\n"
             'If no model is given, the model will default to "{default}".',
         ).format(
             project_name=config.bot_name,
@@ -139,8 +137,6 @@ config(
             "Valid options are numbers between 0 and 1.\n"
             "Higher numbers allow {project_name} to be more creative but also more likely to"
             " hallucinate.\n"
-            "If not supplied, {project_name} will look for the CHATGPT_TEMPERATURE environment"
-            " variable.\n"
             "If no temperature is given, the temperature will default to {default}.",
         ).format(
             project_name=config.bot_name,
@@ -157,15 +153,13 @@ config(
         short="-m",
         help=_(
             "A system message determines what role that {project_name} should play and how it"
-            " should behave while communicating with users.\n"
-            "If not supplied, {project_name} will look for the CHATGPT_SYSTEM_MESSAGE environment"
-            " variable.",
-        ),
+            " should behave while communicating with users.",
+        ).format(project_name=config.bot_name),
     ),
     default=(
         "You are a helpful and formal butler listening in to a chat server.\n"
         f"Your name is {config.bot_name}.\n"
-        "You will respond using honorifics.\n"
+        "You will respond using honorifics."
     ),
 )
 
