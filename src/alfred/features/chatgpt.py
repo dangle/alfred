@@ -14,12 +14,14 @@ watch_status : every minute
     Sets the bot presence to idle if it has not been explicitly addressed within the last minute.
 """
 
+import asyncio
 import builtins
 import dataclasses
 import datetime
 import enum
 import json
 import types
+from collections import defaultdict
 from typing import Any, cast, get_type_hints
 
 import discord
@@ -208,7 +210,8 @@ class ChatGPT(commands.Cog):
 
     def __init__(self, bot: bot.Bot) -> None:
         self._bot = bot
-        self._history: dict[int, list[ChatCompletionMessageParam]] = {}
+        self._history: dict[int, list[ChatCompletionMessageParam]] = defaultdict(list)
+        self._history_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._control_message: str = (
             "If you do not believe a message is intended for you, respond with:"
             f" {self._NO_RESPONSE}\n"
@@ -400,33 +403,31 @@ class ChatGPT(commands.Cog):
             log.debug("Bot is the author of the message.", message=message)
             return
 
-        if message.channel.id not in self._history:
-            self._history[message.channel.id] = []
-
         author: str = self._bot.get_user_name(message.author)
 
-        self._history[message.channel.id].append(
-            ChatCompletionUserMessageParam(
-                role="user",
-                content=message.content,
-                name=author,
-            ),
-        )
+        async with self._history_locks[message.channel.id]:
+            self._history[message.channel.id].append(
+                ChatCompletionUserMessageParam(
+                    role="user",
+                    content=message.content,
+                    name=author,
+                ),
+            )
 
-        must_respond: bool = self._must_respond(message)
+            must_respond: bool = self._must_respond(message)
 
-        if not must_respond and not await self._bot.is_active():
-            return
+            if not must_respond and not await self._bot.is_active():
+                return
 
-        if must_respond:
-            self._explicit_interaction_time = datetime.datetime.now(datetime.UTC)
-            await log.ainfo("Setting the bot status to online.")
-            await self._bot.change_presence(status=discord.enums.Status.online)
+            if must_respond:
+                self._explicit_interaction_time = datetime.datetime.now(datetime.UTC)
+                await log.ainfo("Setting the bot status to online.")
+                await self._bot.change_presence(status=discord.enums.Status.online)
 
-        response: str | None = await self._send_message(message, must_respond=must_respond)
+            response: str | None = await self._send_message(message, must_respond=must_respond)
 
-        if response is not None:
-            await message.reply(response)
+            if response is not None:
+                await message.reply(response)
 
     def _must_respond(self, message: discord.Message) -> bool:
         """Determine if the bot *must* respond to the given `message`.
@@ -553,10 +554,7 @@ class ChatGPT(commands.Cog):
             log.info("Calling tool.", tool=function.name, tool_call_id=tool_call.id)
 
             try:
-                await command(
-                    ctx=ctx,
-                    **json.loads(function.arguments),
-                )
+                await command(ctx=ctx, **json.loads(function.arguments))
                 content = json.dumps([r.serializable() for r in ctx.responses])
             except Exception as e:
                 log.error(
