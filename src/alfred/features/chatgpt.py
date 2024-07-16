@@ -573,21 +573,30 @@ class ChatGPT(commands.Cog):
             message,
             delayed_send=True,
         ) as ctx:
-            log.info("Calling tool.", tool=function.name)
+            log.info("Calling tool.", tool=function.name, tool_call_id=tool_call.id)
 
-            await command(
-                ctx=ctx,
-                **json.loads(function.arguments),
-            )
+            try:
+                await command(
+                    ctx=ctx,
+                    **json.loads(function.arguments),
+                )
+                content = json.dumps([r.serializable() for r in ctx.responses])
+            except Exception as e:
+                log.error(
+                    "An error occurred calling a tool.",
+                    exc_info=e,
+                    tool_call_id=tool_call.id,
+                    function_name=function.name,
+                )
+                content = str(e)
 
             self._history[message.channel.id].append(
                 ChatCompletionToolMessageParam(
                     tool_call_id=tool_call.id,
                     role="tool",
-                    content=json.dumps([r.serializable() for r in ctx.responses]),
+                    content=content,
                 ),
             )
-
             ai = cast(openai.AsyncOpenAI, config.ai)
             response: ChatCompletion = await ai.chat.completions.create(
                 model=config.chatgpt_model,
