@@ -495,7 +495,7 @@ class ChatGPT(commands.Cog):
         assistant_message: str | None = None
 
         for choice in response.choices:
-            if choice.message.content != message.content:
+            if choice.message.content and not choice.message.content.startswith(message.content):
                 assistant_message = choice.message.content
                 break
 
