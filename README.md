@@ -16,7 +16,7 @@ Alfred is an extensible Discord bot that can use ChatGPT to respond conversation
 1. Get your [Discord server ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID)
 
   > [!NOTE]
-  > Not supplying this will cause commands to be registered as global and they make take up to an hour to become available.
+  > Not supplying this will cause commands to be registered as global and they may take up to an hour to become available.
 
 2. Get an [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key)
 
