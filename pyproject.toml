@@ -79,14 +79,15 @@ dev = [
 ]
 
 [tool.pdm.scripts]
-lint.composite = ["ruff check src/ tests/", "mypy src/ tests/"]
+lint = { shell = "/usr/bin/echo -e '\\033[1;33mChecking for common issues...\\033[0m' ; ruff check src/ tests/" }
+check-static = { shell = "/usr/bin/echo -e '\\033[1;33mRunning static code analysis...\\033[0m' ; mypy src/ tests/" }
 pre_start = { shell = "bash -c '{pdm} install &> /dev/null'" }
 start = { cmd = "alfred", env_file = ".env" }
 pre_debug = { shell = "bash -c '{pdm} install &> /dev/null'" }
 debug = { cmd = "alfred", env = { LOG_LEVEL = "DEBUG" }, env_file = ".env" }
 pre_pdb = { shell = "bash -c '{pdm} install &> /dev/null'" }
 pdb = { cmd = "python -m pdb src/alfred/cli.py", env_file = ".env" }
-test = "pytest -vvra"
+test = { shell = "/usr/bin/echo -e '\\033[1;33mRunning Python tests...\\033[0m' ; pytest -vvra" }
 extract-strings = { shell = "mkdir locales 2>/dev/null ; find src/ -iname '*.py' | xargs xgettext --force-po -d alfred -o locales/alfred.pot --from-code UTF-8" }
 new-translation = { shell = "bash -c 'locale=\"{args}\" ; mkdir -p locales/\"${locale:0:2}\"/LC_MESSAGES ; msginit -l \"${locale}\" -o locales/${locale:0:2}/LC_MESSAGES/alfred.po -i locales/alfred.pot --no-translator'" }
 pre_update-translations = "{pdm} extract-strings"
@@ -95,4 +96,11 @@ export-translations = { shell = "bash -c 'for d in locales/*/; do msgfmt --check
 update-doc-stubs = "sphinx-apidoc -f -o docs/source src/alfred"
 pre_gen-docs = "{pdm} update-doc-stubs"
 gen-docs = "make -C docs clean html"
-format = "black src/alfred"
+format = { shell = "/usr/bin/echo -e '\\033[1;33mFormatting Python source files...\\033[0m' ; black src/alfred tests/" }
+check-format = { shell = "/usr/bin/echo -e '\\033[1;33mChecking Python source files for formatting issues...\\033[0m' ;  black src/alfred tests/ --check" }
+check.composite = [
+    "{pdm} check-format",
+    "{pdm} lint",
+    "{pdm} check-static",
+    "{pdm} test",
+]

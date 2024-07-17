@@ -2,7 +2,7 @@ name: Run code quality checks
 on:
   pull_request:
     paths:
-      - '**.py'
+      - "**.py"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -10,16 +10,22 @@ concurrency:
 
 jobs:
   code-quality:
-    name: 'Run code quality checks'
-    runs-on: ubuntu-24.04
+    name: Run code quality checks
+
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
         with:
-          python-version: '3.12'
-          pdm-version: '2.16.1'
+          python-version: "3.12"
+          version: "2.16.1"
+
       - name: Install dependencies
         run: pdm install -d
+
       - name: Run linters
         run: pdm lint
