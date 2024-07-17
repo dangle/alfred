@@ -1,4 +1,4 @@
-name: Run unit tests
+name: Run code formatter checks
 on:
   pull_request:
     paths:
@@ -9,8 +9,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit-tests:
-    name: Run unit tests
+  code-quality:
+    name: Run code formatter checks
 
     runs-on: ubuntu-latest
 
@@ -27,5 +27,5 @@ jobs:
       - name: Install dependencies
         run: pdm install -d
 
-      - name: Run linters
-        run: pdm test
+      - name: Run formatter check
+        run: pdm check-format

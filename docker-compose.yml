@@ -1,0 +1,3 @@
+alfred:
+  container_name: alfred
+  image: "ghcr.io/dangle/alfred:latest"
