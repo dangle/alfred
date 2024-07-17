@@ -8,13 +8,20 @@ Alfred is an extensible Discord bot that can use ChatGPT to respond conversation
 
 #### Get Required Values
 1. Create a [Discord App](https://discord.com/developers/docs/quick-start/getting-started) and get the token.
-    1. For conversational chat support you will need to give the priviledged intents for messages and presence.
+
+  > [!IMPORTANT]
+  > For conversational chat support you will need to give the priviledged intents for messages and presence.
 
 #### Get Optional Values
 1. Get your [Discord server ID](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID)
-    1. If it is not supplied commands will be registered as global and take up to an hour to appear.
+
+  > [!NOTE]
+  > Not supplying this will cause commands to be registered as global and they make take up to an hour to become available.
+
 2. Get an [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key)
-    1. If it is not supplied Alfred will not be able to respond conversationally and only slash commands will be available.
+
+  > [!WARNING]
+  > Not supplying this will prevent Alfred from responding conversationally and only slash commands will be available.
 
 ### Using Docker Compose
 
