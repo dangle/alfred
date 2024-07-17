@@ -3,7 +3,7 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "postCreateCommand": "pdm install -d",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
   "fowardPorts": [2222],
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
