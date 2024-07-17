@@ -158,8 +158,9 @@ config(
     ),
     default=(
         "You are a helpful and formal butler listening in to a chat server.\n"
-        f"Your name is {config.bot_name}.\n"
-        "You will respond using honorifics."
+        f"You will respond to the name {config.bot_name}.\n"
+        "You will respond using honorifics.\n"
+        "Do not ask follow-up questions.\n"
     ),
 )
 
@@ -478,25 +479,27 @@ class ChatGPT(commands.Cog):
         tools = [tool.tool for tool in self._tools.values()] or openai.NOT_GIVEN
 
         try:
-            response_message = await self._call_chat(
+            response: ChatCompletion = await self._call_chat(
                 message,
                 tools=tools,
                 messages=self._get_chat_context(message, must_respond=must_respond),
+                n=2,
             )
-            if response_message.tool_calls:
-                await self._call_tool(message, response_message)
+            if response.choices[0].message.tool_calls:
+                await self._call_tool(message, response.choices[0].message)
                 return None
         except openai.OpenAIError as e:
             log.error("An error occurred while querying the chat service.", exc_info=e)
             return None
 
-        assistant_message: str | None = response_message.content
+        assistant_message: str | None = None
 
-        if (
-            not must_respond
-            and assistant_message == self._NO_RESPONSE
-            or assistant_message == message.content
-        ):
+        for choice in response.choices:
+            if choice.message.content != message.content:
+                assistant_message = choice.message.content
+                break
+
+        if assistant_message and not must_respond and assistant_message == self._NO_RESPONSE:
             return None
 
         if assistant_message is not None:
@@ -567,9 +570,15 @@ class ChatGPT(commands.Cog):
                 ),
             )
 
-            response_message = await self._call_chat(
-                message,
-                messages=self._get_chat_context(message, must_respond=False),
+            response_message = (
+                (
+                    await self._call_chat(
+                        message,
+                        messages=self._get_chat_context(message, must_respond=False),
+                    )
+                )
+                .choices[0]
+                .message
             )
             self._history[message.channel.id].append(
                 ChatCompletionAssistantMessageParam(
@@ -621,7 +630,7 @@ class ChatGPT(commands.Cog):
             ),
         )
 
-    async def _call_chat(self, message: discord.Message, **kwargs: Any) -> ChatCompletionMessage:
+    async def _call_chat(self, message: discord.Message, **kwargs: Any) -> ChatCompletion:
         """Call the chat service.
 
         Parameters
@@ -653,7 +662,7 @@ class ChatGPT(commands.Cog):
             usage=response.usage,
             history_length=len(self._history),
         )
-        return response.choices[0].message
+        return response
 
     def _get_chat_context(
         self,
@@ -701,6 +710,7 @@ class ChatGPT(commands.Cog):
                         f"{"" if must_respond else self._control_message}"
                         "If you are get a file from a function, do *NOT* try to embed it with"
                         " markdown syntax.\n"
+                        "Do not respond with the prompt from the user or a similar message."
                     ),
                 ),
             )
