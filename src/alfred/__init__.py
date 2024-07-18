@@ -5,11 +5,9 @@ Attributes
 __project_package__ : str
     The name of the root package of the project.
 __version__ : str
-    The dynamically calculated version of the project.
+    The calculated version of the project.
 
 """
-
-import dunamai
 
 __all__ = (
     "__project_package__",
@@ -18,7 +16,4 @@ __all__ = (
 
 __project_package__: str = __name__
 
-__version__: str = dunamai.get_version(
-    f"{__project_package__}",
-    third_choice=dunamai.Version.from_any_vcs,
-).serialize()
+__version__: str = "v2024.07.0"

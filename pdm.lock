@@ -5,7 +5,7 @@
 groups = ["default", "test", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.2"
-content_hash = "sha256:eb0b98f9dacef4fd36823fefd928cd99b961378bfba7b408de923243850892a5"
+content_hash = "sha256:62cdae4de2b5c61170813b1cf4e9a87c96f504eae6ae536cd365d221a78e8cd5"
 
 [[package]]
 name = "aiodns"
@@ -429,20 +429,6 @@ files = [
 ]
 
 [[package]]
-name = "dunamai"
-version = "1.21.2"
-requires_python = ">=3.5"
-summary = "Dynamic version generation"
-groups = ["default"]
-dependencies = [
-    "packaging>=20.9",
-]
-files = [
-    {file = "dunamai-1.21.2-py3-none-any.whl", hash = "sha256:87db76405bf9366f9b4925ff5bb1db191a9a1bd9f9693f81c4d3abb8298be6f0"},
-    {file = "dunamai-1.21.2.tar.gz", hash = "sha256:05827fb5f032f5596bfc944b23f613c147e676de118681f3bb1559533d8a65c4"},
-]
-
-[[package]]
 name = "frozenlist"
 version = "1.4.1"
 requires_python = ">=3.8"
@@ -722,7 +708,7 @@ name = "packaging"
 version = "24.1"
 requires_python = ">=3.8"
 summary = "Core utilities for Python packages"
-groups = ["default", "dev", "test"]
+groups = ["dev", "test"]
 files = [
     {file = "packaging-24.1-py3-none-any.whl", hash = "sha256:5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124"},
     {file = "packaging-24.1.tar.gz", hash = "sha256:026ed72c8ed3fcce5bf8950572258698927fd1dbda10a5e981cdf0ac37f4f002"},
