@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  code-quality:
+  check-static-analysis:
     runs-on: ubuntu-latest
 
     steps:
