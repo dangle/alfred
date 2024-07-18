@@ -1,0 +1,11 @@
+name: Run code formatter checks
+on:
+  pull_request:
+    paths-ignore:
+      - "**.py"
+
+jobs:
+  check-formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "check-formatting not required"'
