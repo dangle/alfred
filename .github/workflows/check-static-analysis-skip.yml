@@ -1,0 +1,11 @@
+name: Run static analysis checks
+on:
+  pull_request:
+    paths-ignore:
+      - "**.py"
+
+jobs:
+  check-static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "check-static-analysis not required"'

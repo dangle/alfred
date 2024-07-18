@@ -1,0 +1,12 @@
+[Unit]
+Description=Alfred Service
+After=docker.service config.mount
+Requires=docker.service config.mount
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c "docker-compose -f /opt/alfred/docker-compose.yml up"
+ExecStop=/bin/bash -c "docker-compose -f /opt/alfred/docker-compose.yml stop"
+
+[Install]
+WantedBy=multi-user.target
