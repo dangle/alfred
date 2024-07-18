@@ -20,7 +20,7 @@ jobs:
         uses: pdm-project/setup-pdm@v4
         with:
           python-version: "3.12"
-          version: "2.16.1"
+          version: "2.17.0"
 
       - name: Install dependencies
         run: pdm install -d

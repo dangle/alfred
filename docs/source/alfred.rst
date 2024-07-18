@@ -36,6 +36,14 @@ alfred.config module
    :undoc-members:
    :show-inheritance:
 
+alfred.context module
+---------------------
+
+.. automodule:: alfred.context
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 alfred.exceptions module
 ------------------------
 

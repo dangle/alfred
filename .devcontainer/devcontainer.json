@@ -50,7 +50,9 @@
         "njpwerner.autodocstring",
         "usernamehw.errorlens",
         "ninoseki.vscode-mogami",
-        "KevinRose.vsc-python-indent"
+        "KevinRose.vsc-python-indent",
+        "fill-labs.dependi",
+        "ms-vscode.makefile-tools"
       ],
       "settings": {
         "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
