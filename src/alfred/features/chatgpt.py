@@ -67,6 +67,14 @@ __feature__: str = "ChatGPT"
 log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
 
 
+class _ResponseType(enum.Enum):
+    """Response types for when the bot would not respond to a prompt."""
+
+    ToolCall = enum.auto()
+    NoResponse = enum.auto()
+    BadResponse = enum.auto()
+
+
 class _ChatGPTModels(enum.StrEnum):
     """Valid ChatGPT models."""
 
@@ -419,10 +427,21 @@ class ChatGPT(commands.Cog):
                 await log.ainfo("Setting the bot status to online.")
                 await self._bot.change_presence(status=discord.enums.Status.online)
 
-            response: str | None = await self._send_message(message, must_respond=must_respond)
+            response: str | _ResponseType = await self._send_message(
+                message,
+                must_respond=must_respond,
+            )
 
-            if response is not None:
-                await message.reply(response)
+            match response:
+                case _ResponseType.NoResponse | _ResponseType.BadResponse:
+                    log.info(
+                        f"Skipping response to prompt to message from {author}.",
+                        response=response,
+                    )
+                case _ResponseType.ToolCall:
+                    pass
+                case _:
+                    await message.reply(response)
 
     def _must_respond(self, message: discord.Message) -> bool:
         """Determine if the bot *must* respond to the given `message`.
@@ -452,7 +471,12 @@ class ChatGPT(commands.Cog):
 
         return any(m.id == self._bot.application_id for m in message.mentions)
 
-    async def _send_message(self, message: discord.Message, *, must_respond: bool) -> str | None:
+    async def _send_message(
+        self,
+        message: discord.Message,
+        *,
+        must_respond: bool,
+    ) -> str | _ResponseType:
         """Send a message to the chat service with historical context and return the response.
 
         If `must_respond` is `False` this will prepend a system message that allows the bot to
@@ -487,10 +511,10 @@ class ChatGPT(commands.Cog):
             )
             if response.choices[0].message.tool_calls:
                 await self._call_tool(message, response.choices[0].message)
-                return None
+                return _ResponseType.ToolCall
         except openai.OpenAIError as e:
             log.error("An error occurred while querying the chat service.", exc_info=e)
-            return None
+            return _ResponseType.NoResponse
 
         assistant_message: str | None = None
 
@@ -499,10 +523,10 @@ class ChatGPT(commands.Cog):
                 assistant_message = choice.message.content
                 break
 
-        if assistant_message and not must_respond and assistant_message == self._NO_RESPONSE:
-            return None
+        if assistant_message == self._NO_RESPONSE:
+            return _ResponseType.NoResponse
 
-        if assistant_message is not None:
+        if assistant_message:
             self._history[message.channel.id].append(
                 ChatCompletionAssistantMessageParam(
                     role="assistant",
@@ -510,7 +534,7 @@ class ChatGPT(commands.Cog):
                 ),
             )
 
-        return assistant_message
+        return _ResponseType.BadResponse
 
     async def _call_tool(
         self,

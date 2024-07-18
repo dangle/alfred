@@ -39,7 +39,7 @@ import argparse
 import contextlib
 import copy
 import dataclasses
-import logging
+import enum
 import os
 import typing
 
@@ -68,9 +68,17 @@ __all__ = (
     "csv",
     "CommandLineFlag",
     "EnvironmentVariable",
+    "NOT_GIVEN",
 )
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger()
+
+
+class _NotGiven(enum.Enum):
+    NOT_GIVEN = object()
+
+
+NOT_GIVEN = _NotGiven.NOT_GIVEN
 
 
 def csv(value: str) -> list[str]:
@@ -106,7 +114,7 @@ class EnvironmentVariable:
     """
 
     name: str
-    type: ConfigProcessor | None = None
+    type: ConfigProcessor | Literal[NOT_GIVEN] = NOT_GIVEN
 
 
 @dataclasses.dataclass
@@ -130,17 +138,17 @@ class CommandLineFlag:
 
     name: str
 
-    short: str | None = None
+    short: str | Literal[NOT_GIVEN] = NOT_GIVEN
 
     # Supported `argparse.add_argument` flags.
     action: ArgParseAction = "store"
-    choices: Container[Any] | None = None
-    const: Any = None
-    help: str | None = None
-    metavar: str | None = None
-    nargs: int | Literal["*", "?", "+"] | None = None
-    type: ConfigProcessor | None = None
-    version: str | None = None
+    choices: Container[Any] | Literal[NOT_GIVEN] = NOT_GIVEN
+    const: Any = NOT_GIVEN
+    help: str | Literal[NOT_GIVEN] = NOT_GIVEN
+    metavar: str | Literal[NOT_GIVEN] = NOT_GIVEN
+    nargs: int | Literal["*", "?", "+", NOT_GIVEN] = NOT_GIVEN
+    type: ConfigProcessor | Literal[NOT_GIVEN] = NOT_GIVEN
+    version: str | Literal[NOT_GIVEN] = NOT_GIVEN
 
 
 @dataclasses.dataclass
@@ -151,9 +159,9 @@ class _ConfigValue:
     ----------
     name : str
         The name of the configuration attribute that will be assigned the computed value.
-    env : str | None, optional
+    env : EnvironmentVariable | Literal[NOT_GIVEN], optional
         The name of the environment variable, if given.
-    flag : str | None, optional
+    flag : CommandLineFlag | Literal[NOT_GIVEN], optional
         The name of the command-line flag, if given.
     required : bool, optional
         Whether or not this configuration attribute is required.
@@ -165,10 +173,10 @@ class _ConfigValue:
     """
 
     name: str
-    env: EnvironmentVariable | None = None
-    flag: CommandLineFlag | None = None
+    env: EnvironmentVariable | Literal[NOT_GIVEN] = NOT_GIVEN
+    flag: CommandLineFlag | Literal[NOT_GIVEN] = NOT_GIVEN
     required: bool = False
-    default: Any = None
+    default: Any = NOT_GIVEN
     _is_computed: bool = False
     _computed_value: Any = None
 
@@ -191,7 +199,7 @@ class _ConfigValue:
         if self._is_computed:
             return self._computed_value
 
-        if self.default is not None:
+        if self.default is not NOT_GIVEN:
             return self.default
 
         if self.required:
@@ -200,7 +208,7 @@ class _ConfigValue:
                 " yet been loaded.",
             )
 
-        return None
+        return NOT_GIVEN
 
     @value.setter
     def value(self, value: Any) -> None:
@@ -322,9 +330,9 @@ class _Config:
         self,
         name: str,
         *,
-        flag: CommandLineFlag | str | None = None,
-        env: EnvironmentVariable | str | None = None,
-        default: Any = None,
+        flag: CommandLineFlag | str | Literal[NOT_GIVEN] = NOT_GIVEN,
+        env: EnvironmentVariable | str | Literal[NOT_GIVEN] = NOT_GIVEN,
+        default: Any = NOT_GIVEN,
         required: bool = False,
     ) -> None:
         """Register a new configuration attribute.
@@ -335,9 +343,9 @@ class _Config:
         ----------
         name : str
             The name of the configuration attribute to set.
-        env : str | None, optional
+        env : CommandLineFlag | str | Literal[NOT_GIVEN], optional
             The name of the environment variable, if given.
-        flag : str | None, optional
+        flag : EnvironmentVariable | str | Literal[NOT_GIVEN], optional
             The name of the command-line flag, if given.
         default : Any, optional
             The value to return if neither the environment variable nor the command-line flag are
@@ -362,10 +370,10 @@ class _Config:
             raise ValueError("At least one of `flag` or `env` must be given.")
 
         if isinstance(env, str):
-            env = EnvironmentVariable(name=env) if env else None
+            env = EnvironmentVariable(name=env) if env else NOT_GIVEN
 
         if isinstance(flag, str):
-            flag = CommandLineFlag(name=flag) if flag else None
+            flag = CommandLineFlag(name=flag) if flag else NOT_GIVEN
 
         setattr(
             self,
@@ -384,10 +392,6 @@ class _Config:
 
         """
         return _("Alfred")
-
-    @property
-    def debugging(self) -> bool:
-        return logging.getLogger().isEnabledFor(logging.DEBUG)
 
     @property
     def version(self) -> str:
@@ -457,7 +461,7 @@ class _Config:
             urcv for urcv in self.config.values() if not urcv._is_computed  # noqa: SLF001
         )
         for cv in uncomputed_config_values:
-            if cv.default is not None:
+            if cv.default is not NOT_GIVEN:
                 cv.value = cv.default
                 continue
 
@@ -504,14 +508,14 @@ class _Config:
             del kw["short"]
 
             for k in set(kw.keys()):
-                if getattr(cv.flag, k) is None:
+                if getattr(cv.flag, k) is NOT_GIVEN:
                     del kw[k]
 
             if cv.required and not cv.env and cv.flag.name.startswith("-"):
                 kw["required"] = True
 
             parameters: tuple[str] | tuple[str, str] = (
-                (cv.flag.short, cv.flag.name) if cv.flag.short else (cv.flag.name,)
+                (cv.flag.short, cv.flag.name) if cv.flag.short is not NOT_GIVEN else (cv.flag.name,)
             )
             parser.add_argument(*parameters, dest=cv.name, **kw)
 
@@ -520,7 +524,7 @@ class _Config:
         for cv in flag_config_values:
             try:
                 value: Any = getattr(parsed_args, cv.name)
-                if value is not None:
+                if value is not None or cv.env is NOT_GIVEN:
                     cv.value = value
             except AttributeError:
                 pass
@@ -528,14 +532,16 @@ class _Config:
     def _load_env(self) -> None:
         """Load and parse all configured environment variables."""
         env_config_values: Iterable[_ConfigValue] = (
-            cv for cv in self.config.values() if cv.env and not cv._is_computed  # noqa: SLF001
+            cv
+            for cv in self.config.values()
+            if cv.env is not NOT_GIVEN and not cv._is_computed  # noqa: SLF001
         )
         for cv in env_config_values:
             # Inform mypy that this cannot be None
             cv.env = typing.cast(EnvironmentVariable, cv.env)
 
             if cv.env.name and cv.env.name in os.environ:
-                if cv.env.type is None:
+                if cv.env.type is NOT_GIVEN:
                     cv.value = os.environ[cv.env.name]
                     continue
 
