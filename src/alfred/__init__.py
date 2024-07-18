@@ -4,7 +4,7 @@ Attributes
 ----------
 __project_package__ : str
     The name of the root package of the project.
-__version__ : str
+__version__: str = "v2024.07.0"
     The current version of the project.
 
 """

@@ -2,19 +2,17 @@
 name: Create and publish a Docker image
 
 on:
-  release:
-    types: [created, published]
-
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
-
 jobs:
   build-and-push-image:
-    name: Build and deploy a Docker image
-
     runs-on: ubuntu-latest
 
     permissions:
