@@ -1,4 +1,4 @@
-name: Run unit tests
+name: Run static analysis checks
 on:
   pull_request:
     paths:
@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  run-unit-tests:
+  check-static-analysis:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,5 +25,5 @@ jobs:
       - name: Install dependencies
         run: pdm install -d
 
-      - name: Run linters
-        run: pdm test
+      - name: Run mypy
+        run: pdm check-static
