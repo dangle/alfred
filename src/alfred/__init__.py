@@ -5,7 +5,7 @@ Attributes
 __project_package__ : str
     The name of the root package of the project.
 __version__ : str
-    The calculated version of the project.
+    The current version of the project.
 
 """
 
