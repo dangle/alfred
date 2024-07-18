@@ -10,8 +10,6 @@ concurrency:
 
 jobs:
   code-quality:
-    name: Run code quality checks
-
     runs-on: ubuntu-latest
 
     steps:
