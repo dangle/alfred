@@ -435,7 +435,7 @@ class ChatGPT(commands.Cog):
             match response:
                 case _ResponseType.NoResponse | _ResponseType.BadResponse:
                     log.info(
-                        f"Skipping response to prompt to message from {author}.",
+                        f"Skipping response to message from {author}.",
                         response=response,
                     )
                 case _ResponseType.ToolCall:

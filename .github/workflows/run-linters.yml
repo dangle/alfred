@@ -9,9 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  code-quality:
-    name: Run code quality checks
-
+  check-linters:
     runs-on: ubuntu-latest
 
     steps:
