@@ -8,7 +8,7 @@ from typing import Any
 import discord
 import structlog
 
-from .config import CommandLineFlag, EnvironmentVariable, config, csv
+from .config import NOT_GIVEN, CommandLineFlag, EnvironmentVariable, config, csv
 from .exceptions import FeatureNotFoundError
 from .features import features as features_
 from .translation import gettext as _
@@ -108,7 +108,7 @@ class Bot(discord.Bot):
         from .features.admin import __feature__
 
         features_to_enable: set[str] = set(
-            features if features is not None else features_.all_features,
+            features if features and features is not NOT_GIVEN else features_.all_features,
         ) | (set() if disable_admin_commands else {__feature__})
 
         for feature in features_to_enable:
@@ -393,7 +393,7 @@ class Bot(discord.Bot):
         if (cog := ctx.cog) and cog.has_error_handler():
             return
 
-        await log.aexception(
+        await log.aerror(
             "An exception occurred while running an application command.",
             exc_info=exception,
         )
