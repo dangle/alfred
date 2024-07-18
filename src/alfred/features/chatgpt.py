@@ -228,7 +228,7 @@ class ChatGPT(commands.Cog):
         for command in self._bot.application_commands:
             await self.add_tool(command)
 
-        log.info(
+        await log.ainfo(
             "Tools for the chat service.",
             tools=self._tools if config.debugging else list(self._tools),
         )
@@ -256,12 +256,12 @@ class ChatGPT(commands.Cog):
         try:
             self._tools[command.qualified_name.replace(" ", "__")] = _Tool(
                 command=command,
-                tool=self._convert_command_to_tool(command),
+                tool=await self._convert_command_to_tool(command),
             )
         except ValueError as e:
-            log.debug("Unable to parse type in bot command.", exc_info=e)
+            await log.adebug("Unable to parse type in bot command.", exc_info=e)
 
-    def _convert_command_to_tool(
+    async def _convert_command_to_tool(
         self,
         command: commands.core.ApplicationCommand,
     ) -> ChatCompletionToolParam:
@@ -296,7 +296,7 @@ class ChatGPT(commands.Cog):
                 or not parameter.name
                 or parameter.name == "self"
             ):
-                log.debug(
+                await log.adebug(
                     "Skipping parameter.",
                     command=command.name,
                     parameter=parameter,
@@ -369,7 +369,7 @@ class ChatGPT(commands.Cog):
         if self.watch_status.is_running():
             return
 
-        log.info("Starting bot presence management.")
+        await log.ainfo("Starting bot presence management.")
         await self._bot.change_presence(status=discord.enums.Status.idle)
         self.watch_status.start()
 
@@ -403,7 +403,7 @@ class ChatGPT(commands.Cog):
 
         """
         if message.author.id == self._bot.application_id:
-            log.debug("Bot is the author of the message.", message=message)
+            await log.adebug("Bot is the author of the message.", message=message)
             return
 
         author: str = self._bot.get_user_name(message.author)
@@ -434,7 +434,7 @@ class ChatGPT(commands.Cog):
 
             match response:
                 case _ResponseType.NoResponse | _ResponseType.BadResponse:
-                    log.info(
+                    await log.ainfo(
                         f"Skipping response to message from {author}.",
                         response=response,
                     )
@@ -513,7 +513,7 @@ class ChatGPT(commands.Cog):
                 await self._call_tool(message, response.choices[0].message)
                 return _ResponseType.ToolCall
         except openai.OpenAIError as e:
-            log.error("An error occurred while querying the chat service.", exc_info=e)
+            await log.aerror("An error occurred while querying the chat service.", exc_info=e)
             return _ResponseType.NoResponse
 
         assistant_message: str | None = None
@@ -533,7 +533,9 @@ class ChatGPT(commands.Cog):
                     content=message.content,
                 ),
             )
+            return assistant_message
 
+        await log.aerror("Recevied a bad response from the chat service.", response=response)
         return _ResponseType.BadResponse
 
     async def _call_tool(
@@ -572,13 +574,13 @@ class ChatGPT(commands.Cog):
             message,
             delayed_send=True,
         ) as ctx:
-            log.info("Calling tool.", tool=function.name, tool_call_id=tool_call.id)
+            await log.ainfo("Calling tool.", tool=function.name, tool_call_id=tool_call.id)
 
             try:
                 await command(ctx=ctx, **json.loads(function.arguments))
                 content = json.dumps([r.serializable() for r in ctx.responses])
             except Exception as e:
-                log.error(
+                await log.aerror(
                     "An error occurred while calling a tool.",
                     exc_info=e,
                     tool_call_id=tool_call.id,
@@ -681,7 +683,7 @@ class ChatGPT(commands.Cog):
 
         ai = cast(openai.AsyncOpenAI, config.ai)
         response: ChatCompletion = await ai.chat.completions.create(**kwargs)
-        log.info(
+        await log.ainfo(
             "Chat service usage.",
             usage=response.usage,
             history_length=len(self._history),
