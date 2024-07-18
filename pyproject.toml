@@ -66,6 +66,7 @@ ignore_missing_imports = true
 
 [tool.pdm]
 distribution = true
+
 [tool.pdm.dev-dependencies]
 test = ["pytest>=8.2.2"]
 dev = [
@@ -76,6 +77,7 @@ dev = [
     "sphinx>=7.3.7",
     "sphinx-rtd-theme>=2.0.0",
     "isort>=5.13.2",
+    "black>=24.4.2",
 ]
 
 [tool.pdm.scripts]
