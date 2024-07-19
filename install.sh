@@ -72,7 +72,7 @@ if ! command -v docker; then
       tee /etc/apt/sources.list.d/docker.list > /dev/null
     apt-get update
 
-    if ! apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
+    if ! apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-compose; then
       unable-to-install-docker
     fi
   elif command -v dnf; then
@@ -81,7 +81,7 @@ if ! command -v docker; then
     dnf -y install dnf-plugins-core
     dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
 
-    if ! dnf install -y docker; then
+    if ! dnf install -y docker docker-compose; then
       unable-to-install-docker
     fi
   elif command -v pacman; then
