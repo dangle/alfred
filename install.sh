@@ -2,36 +2,94 @@
 
 DEFAULT_ROOT=/opt/alfred
 
-### Ensure docker-compose is installed -----------------------------------------
-function unable-to-install() {
-  dialog --keep-tite --msgbox "Unable to install docker-compose." 5 37
+### Ensure dialog is installed -------------------------------------------------
+function unable-to-install-dialog() {
+  dialog --keep-tite --msgbox "Unable to install dialog." 5 37
   exit 1
 }
 
-if ! command -v docker-compose; then
+if ! command -v dialog; then
+while true; do
+    read -p "dialog is required to run this script.\n`
+            `Do you wish to install this program now? " yn
+    case $yn in
+        [Yy]* )
+          if command -v apt-get; then
+            if ! apt-get install -y dialog; then
+              unable-to-install-dialog
+            fi
+          elif command -v dnf; then
+            if ! dnf install -y dialog; then
+              unable-to-install-dialog
+            fi
+          elif command -v pacman; then
+            if ! pacman -Sy dialog --noconfirm; then
+              unable-to-install-dialog
+            fi
+          fi
+          unable-to-install-dialog
+          break;;
+        [Nn]* )
+          echo "Please install dialog."
+          exit 1;;
+        * )
+          echo "Please answer yes or no.";;
+    esac
+done
+fi
+### ============================================================================
+
+### Ensure docker-compose is installed -----------------------------------------
+function unable-to-install-docker() {
+  dialog --keep-tite --msgbox "Unable to install docker." 5 37
+  exit 1
+}
+
+if ! command -v docker; then
   dialog --keep-tite --yesno \
-    "docker-compose is not installed.\n\nWould you like to install it now?" \
+    "docker is not installed.\n\nWould you like to install it now?" \
     0 0
 
   if [ $? -eq 1 ]; then
-    dialog --keep-tite --msgbox "Please install docker-compose." 5 34
+    dialog --keep-tite --msgbox "Please install docker." 5 34
     exit 1
   fi
 
   if command -v apt-get; then
-    if ! apt-get install -y docker-compose; then
-      unable-to-install
+    # See: https://docs.docker.com/engine/install/debian/
+
+    # Add Docker's official GPG key:
+    apt-get update
+    apt-get install ca-certificates curl
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+
+    # Add the repository to Apt sources:
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+      tee /etc/apt/sources.list.d/docker.list > /dev/null
+    apt-get update
+
+    if ! apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
+      unable-to-install-docker
     fi
   elif command -v dnf; then
-    if ! dnf install docker-compose; then
-      unable-to-install
+    # See: https://docs.docker.com/engine/install/fedora/
+
+    dnf -y install dnf-plugins-core
+    dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+
+    if ! dnf install -y docker; then
+      unable-to-install-docker
     fi
   elif command -v pacman; then
-    if ! pacman -Sy docker-compose --noconfirm; then
-      unable-to-install
+    if ! pacman -Sy docker docker-compose --noconfirm; then
+      unable-to-install-docker
     fi
   else
-    unable-to-install
+    unable-to-install-docker
   fi
 fi
 ### ============================================================================
@@ -69,8 +127,8 @@ cd "${ROOT}"
 ### ============================================================================
 
 ### Download the service files -------------------------------------------------
-curl -O "https://github.com/dangle/alfred/blob/main/docker-compose.yml"
-curl -O "https://github.com/dangle/alfred/blob/main/alfred.service"
+curl -O "https://raw.githubusercontent.com/dangle/alfred/main/docker-compose.yml"
+curl -O "https://raw.githubusercontent.com/dangle/alfred/main/alfred.service"
 sed -i "s;/opt/alfred/;${ROOT}/;g" alfred.service
 ### ============================================================================
 
@@ -156,7 +214,7 @@ if [[ "${INIT}" == "systemd" && -w "/etc/systemd/system/" ]]; then
     exit 0
   fi
 
-  ln -s alfred.service /etc/systemd/system/
+  ln -sf "${DEFAULT_ROOT}/alfred.service" /etc/systemd/system/
 
   systemctl daemon-reload
   systemctl enable --now docker.service
