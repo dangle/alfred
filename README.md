@@ -28,7 +28,7 @@ Alfred is an extensible Discord bot that can use ChatGPT to respond conversation
 The easiest way to install the bot is to run the guided installation script.
 
 ```sh
-curl -s https://github.com/dangle/alfred/blob/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/dangle/alfred/main/install.sh | sudo bash
 ```
 
   > [!WARNING]
@@ -46,7 +46,7 @@ cd /opt/alfred
 2. Download the `docker-compose.yml` file from the repository.
 
 ```sh
-curl -O https://github.com/dangle/alfred/blob/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/dangle/alfred/main/docker-compose.yml
 ```
 
 3. Create a `.env` file with the following variables:
