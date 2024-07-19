@@ -11,7 +11,7 @@ function unable-to-install-dialog() {
 if ! command -v dialog; then
 while true; do
     read -p "dialog is required to run this script.\n`
-            `Do you wish to install this program now? " yn
+            `Would you like to install it now? " yn
     case $yn in
         [Yy]* )
           if command -v apt-get; then
