@@ -250,7 +250,6 @@ class MessageApplicationContext(discord.ApplicationContext):
         return defer
 
     @property
-    @discord.utils.copy_doc(Interaction.respond)
     def respond(self) -> Callable[..., Awaitable[Interaction | WebhookMessage]]:
         """An override of `discord.ApplicationContext.respond` that can delay sending messages.
 
