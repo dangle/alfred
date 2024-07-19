@@ -5,7 +5,7 @@ Requires=docker.service
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -c "docker-compose -f /opt/alfred/docker-compose.yml up"
+ExecStart=/bin/bash -c "docker-compose -f /opt/alfred/docker-compose.yml up --no-log-prefix"
 ExecStop=/bin/bash -c "docker-compose -f /opt/alfred/docker-compose.yml stop"
 
 [Install]
