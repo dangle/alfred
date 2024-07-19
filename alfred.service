@@ -1,7 +1,7 @@
 [Unit]
 Description=Alfred Service
-After=docker.service config.mount
-Requires=docker.service config.mount
+After=docker.service
+Requires=docker.service
 
 [Service]
 Type=simple
