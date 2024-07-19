@@ -127,8 +127,8 @@ cd "${ROOT}"
 ### ============================================================================
 
 ### Download the service files -------------------------------------------------
-curl -O "https://raw.githubusercontent.com/dangle/alfred/main/docker-compose.yml"
-curl -O "https://raw.githubusercontent.com/dangle/alfred/main/alfred.service"
+curl -O --clobber "https://raw.githubusercontent.com/dangle/alfred/main/docker-compose.yml"
+curl -O --clobber "https://raw.githubusercontent.com/dangle/alfred/main/alfred.service"
 sed -i "s;/opt/alfred/;${ROOT}/;g" alfred.service
 ### ============================================================================
 
