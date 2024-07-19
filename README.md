@@ -32,7 +32,7 @@ curl -sSL https://raw.githubusercontent.com/dangle/alfred/main/install.sh | sudo
 ```
 
   > [!WARNING]
-  > Always verify the contents of the script before running any code from the internet.
+  > Always verify the contents of any code from the internet before running it.
 
 ### Manually Install Using Docker Compose
 
