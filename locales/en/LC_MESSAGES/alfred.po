@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-18 23:30+0000\n"
+"POT-Creation-Date: 2024-07-19 23:03+0000\n"
 "PO-Revision-Date: 2024-07-12 23:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -193,7 +193,7 @@ msgstr ""
 msgid "Disable the Discord commands for administrating {project_name}."
 msgstr "Disable the Discord commands for administrating {project_name}."
 
-#: src/alfred/config.py:394
+#: src/alfred/config.py:383
 msgid "Alfred"
 msgstr "Alfred"
 
