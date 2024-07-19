@@ -106,6 +106,6 @@ update-translations = "make update-translations"
 export-translations = "make export-translations"
 
 update-doc-stubs = "make update-doc-stubs"
-gen-docs = "make generate-docs"
+generate-docs = "make generate-docs"
 
 release = "make release"

@@ -53,7 +53,7 @@ update-doc-stubs:
 	@sphinx-apidoc -f -o docs/source src/alfred
 
 generate-docs: update-doc-stubs
-	@${MAKE} ${MFLAGS} -C docs clean html
+	@${MAKE} ${MFLAGS} -C docs clean html SPHINXOPTS="-W --keep-going"
 
 release: VERSION=$(shell \
 	(git describe --tags --match="v2[0-9][0-9][0-9].[0-9][0-9].*" HEAD 2>/dev/null || date "+%Y.%m.0") \
