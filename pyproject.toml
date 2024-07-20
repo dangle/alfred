@@ -8,23 +8,10 @@ readme = "README.md"
 license = { text = "MIT" }
 dependencies = [
     "py-cord[speed,voice]>=2.6.0",
-    "openai>=1.35.15",
+    "openai>=1.36.0",
     "python-dotenv>=1.0.1",
     "structlog>=24.4.0",
     "aiohttp[speedups]>=3.9.5",
-]
-
-[tool.pdm.dev-dependencies]
-test = ["pytest>=8.2.2"]
-dev = [
-    "bpython>=0.24",
-    "mypy>=1.10.1",
-    "pyment>=0.3.3",
-    "ruff>=0.5.0",
-    "sphinx>=7.3.7",
-    "sphinx-rtd-theme>=2.0.0",
-    "isort>=5.13.2",
-    "black>=24.4.2",
 ]
 
 [project.entry-points."alfred.features"]
@@ -79,6 +66,19 @@ ignore_missing_imports = true
 [tool.pdm]
 distribution = true
 
+[tool.pdm.dev-dependencies]
+test = ["pytest>=8.2.2"]
+dev = [
+    "bpython>=0.24",
+    "mypy>=1.10.1",
+    "pyment>=0.3.3",
+    "ruff>=0.5.0",
+    "sphinx>=7.4.7",
+    "sphinx-rtd-theme>=2.0.0",
+    "isort>=5.13.2",
+    "black>=24.4.2",
+]
+
 [tool.pdm.scripts]
 pre_start = { shell = "bash -c '{pdm} install &> /dev/null'" }
 start = { cmd = "alfred", env_file = ".env" }
@@ -92,20 +92,25 @@ check-static = "make static-analysis"
 check-format = "make check-formatting"
 format = "make format"
 test = { shell = "make run-unit-tests" }
-check.composite = [
-    "{pdm} check-format",
-    "{pdm} lint",
-    "{pdm} check-static",
-    "{pdm} test",
-]
 
 extract-strings = "make extract-strings"
 new-translation = "make new-translation LOCALE=\"{args}\""
 pre_update-translations = "{pdm} extract-strings"
 update-translations = "make update-translations"
 export-translations = "make export-translations"
+check-translations = "make check-translations"
 
 update-doc-stubs = "make update-doc-stubs"
 generate-docs = "make generate-docs"
+check-docs = "make check-docs"
 
 release = "make release"
+
+check.composite = [
+    "{pdm} check-format",
+    "{pdm} lint",
+    "{pdm} check-static",
+    "{pdm} test",
+    "{pdm} check-translations",
+    "{pdm} check-docs",
+]
