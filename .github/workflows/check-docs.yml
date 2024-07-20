@@ -1,0 +1,29 @@
+name: Check documentation can build
+on:
+  pull_request:
+    paths:
+      - "**.py"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.12"
+          version: "2.17.0"
+
+      - name: Install dependencies
+        run: pdm install -d
+
+      - name: Run linters
+        run: pdm check-docs

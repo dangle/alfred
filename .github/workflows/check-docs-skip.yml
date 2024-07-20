@@ -1,0 +1,11 @@
+name: Check documentation can build
+on:
+  pull_request:
+    paths-ignore:
+      - "**.py"
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "check-docs not required"'
