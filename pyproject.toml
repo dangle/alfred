@@ -95,7 +95,6 @@ test = { shell = "make run-unit-tests" }
 
 extract-strings = "make extract-strings"
 new-translation = "make new-translation LOCALE=\"{args}\""
-pre_update-translations = "{pdm} extract-strings"
 update-translations = "make update-translations"
 export-translations = "make export-translations"
 check-translations = "make check-translations"

@@ -1,6 +1,7 @@
 """The entry point of the bot.
 
 Defines the CLI interface of the bot, configures the bot, and then runs it.
+
 """
 
 import argparse

@@ -2,20 +2,21 @@
 
 Commands
 --------
-/enabled
+/admin enabled
     Returns the set of all enabled features.
 
-/disabled
+/admin disabled
     Returns the set of all disabled features.
 
-/enable feature
+/admin enable feature
     Enables the given feature.
 
-/disable feature
+/admin disable feature
     Disables the given feature.
 
-/reload [feature]
+/admin reload [feature]
     If `feature` is given it reloads that feature; otherwise, it reloads the entire `bot.Bot`.
+
 """
 
 import discord

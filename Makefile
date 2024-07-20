@@ -31,9 +31,10 @@ format:
 	@black src/alfred tests/
 
 extract-strings:
-	@/usr/bin/echo -e '${BOLD}${YELLOW}Extracting strings for translation..${NORMAL}'
+	@/usr/bin/echo -e '${BOLD}${YELLOW}Extracting strings for translation...${NORMAL}'
 	@mkdir locales 2>/dev/null || true
 	@find src/ -iname '*.py' | xargs xgettext --force-po -d alfred -o locales/alfred.pot --from-code UTF-8
+	@echo "All strings extracted."
 
 new-translation:
 	@/usr/bin/echo -e '${BOLD}${YELLOW}Creating a new translation target...${NORMAL}'
@@ -67,6 +68,7 @@ check-translations: check-strings
 update-doc-stubs:
 	@/usr/bin/echo -e '${BOLD}${YELLOW}Updating Sphinx documentation stubs...${NORMAL}'
 	@sphinx-apidoc -f -o docs/source src/alfred
+	@echo "Documentation stubs updated."
 
 generate-docs: update-doc-stubs
 	@/usr/bin/echo -e '${BOLD}${YELLOW}Building HTML Sphinx documentation...${NORMAL}'

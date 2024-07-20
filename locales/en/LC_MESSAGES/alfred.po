@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-19 23:03+0000\n"
+"POT-Creation-Date: 2024-07-20 23:45+0000\n"
 "PO-Revision-Date: 2024-07-12 23:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,90 +16,6 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-
-#: src/alfred/features/admin.py:120
-msgid "There are no enabled features."
-msgstr "There are no enabled features."
-
-#: src/alfred/features/admin.py:125
-#, python-brace-format
-msgid "The following features are enabled: {enabled_features}"
-msgstr "The following features are enabled: {enabled_features}"
-
-#: src/alfred/features/admin.py:142
-msgid "There are no disabled features."
-msgstr "There are no disabled features."
-
-#: src/alfred/features/admin.py:147
-#, python-brace-format
-msgid "The following features are disabled: {disabled_features}"
-msgstr "The following features are disabled: {disabled_features}"
-
-#: src/alfred/features/admin.py:154 src/alfred/features/admin.py:181
-#: src/alfred/features/admin.py:211
-msgid "feature"
-msgstr "feature"
-
-#: src/alfred/features/admin.py:167 src/alfred/features/admin.py:194
-#: src/alfred/features/admin.py:232
-#, python-brace-format
-msgid "Feature not found: {feature}"
-msgstr "Feature not found: {feature}"
-
-#: src/alfred/features/admin.py:174
-#, python-brace-format
-msgid "Failed to enable feature: {feature}"
-msgstr "Failed to enable feature: {feature}"
-
-#: src/alfred/features/admin.py:177
-#, python-brace-format
-msgid "Feature enabled: {feature}"
-msgstr "Feature enabled: {feature}"
-
-#: src/alfred/features/admin.py:198
-#, python-brace-format
-msgid "Feature not enabled: {feature}"
-msgstr "Feature not enabled: {feature}"
-
-#: src/alfred/features/admin.py:204
-#, python-brace-format
-msgid "Failed to disable feature: {feature}"
-msgstr "Failed to disable feature: {feature}"
-
-#: src/alfred/features/admin.py:207
-#, python-brace-format
-msgid "Disabling feature: {feature}"
-msgstr "Disabling feature: {feature}"
-
-#: src/alfred/features/admin.py:228
-msgid "Reloaded bot features"
-msgstr "Reloaded bot features"
-
-#: src/alfred/features/admin.py:238
-#, python-brace-format
-msgid "Failed to reload feature: {feature}"
-msgstr "Failed to reload feature: {feature}"
-
-#: src/alfred/features/admin.py:241
-#, python-brace-format
-msgid "Feature reloaded: {feature}"
-msgstr "Feature reloaded: {feature}"
-
-#: src/alfred/features/dalle.py:97 src/alfred/features/dalle.py:152
-msgid "prompt"
-msgstr "prompt"
-
-#: src/alfred/features/dalle.py:103 src/alfred/features/dalle.py:158
-msgid "size"
-msgstr "size"
-
-#: src/alfred/features/dalle.py:110 src/alfred/features/dalle.py:165
-msgid "quality"
-msgstr "quality"
-
-#: src/alfred/features/dalle.py:258
-msgid "Unable to download generated image."
-msgstr "Unable to download generated image."
 
 #: src/alfred/features/_ai.py:31
 #, fuzzy, python-brace-format
@@ -148,14 +64,89 @@ msgid ""
 "how it should behave while communicating with users."
 msgstr ""
 
-#: src/alfred/cli.py:44
+#: src/alfred/features/admin.py:121
+msgid "There are no enabled features."
+msgstr "There are no enabled features."
+
+#: src/alfred/features/admin.py:126
 #, python-brace-format
-msgid ""
-"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
-"conversationally and run commands on behalf of the server users."
-msgstr ""
-"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
-"conversationally and run commands on behalf of the server users."
+msgid "The following features are enabled: {enabled_features}"
+msgstr "The following features are enabled: {enabled_features}"
+
+#: src/alfred/features/admin.py:143
+msgid "There are no disabled features."
+msgstr "There are no disabled features."
+
+#: src/alfred/features/admin.py:148
+#, python-brace-format
+msgid "The following features are disabled: {disabled_features}"
+msgstr "The following features are disabled: {disabled_features}"
+
+#: src/alfred/features/admin.py:155 src/alfred/features/admin.py:182
+#: src/alfred/features/admin.py:212
+msgid "feature"
+msgstr "feature"
+
+#: src/alfred/features/admin.py:168 src/alfred/features/admin.py:195
+#: src/alfred/features/admin.py:233
+#, python-brace-format
+msgid "Feature not found: {feature}"
+msgstr "Feature not found: {feature}"
+
+#: src/alfred/features/admin.py:175
+#, python-brace-format
+msgid "Failed to enable feature: {feature}"
+msgstr "Failed to enable feature: {feature}"
+
+#: src/alfred/features/admin.py:178
+#, python-brace-format
+msgid "Feature enabled: {feature}"
+msgstr "Feature enabled: {feature}"
+
+#: src/alfred/features/admin.py:199
+#, python-brace-format
+msgid "Feature not enabled: {feature}"
+msgstr "Feature not enabled: {feature}"
+
+#: src/alfred/features/admin.py:205
+#, python-brace-format
+msgid "Failed to disable feature: {feature}"
+msgstr "Failed to disable feature: {feature}"
+
+#: src/alfred/features/admin.py:208
+#, python-brace-format
+msgid "Disabling feature: {feature}"
+msgstr "Disabling feature: {feature}"
+
+#: src/alfred/features/admin.py:229
+msgid "Reloaded bot features"
+msgstr "Reloaded bot features"
+
+#: src/alfred/features/admin.py:239
+#, python-brace-format
+msgid "Failed to reload feature: {feature}"
+msgstr "Failed to reload feature: {feature}"
+
+#: src/alfred/features/admin.py:242
+#, python-brace-format
+msgid "Feature reloaded: {feature}"
+msgstr "Feature reloaded: {feature}"
+
+#: src/alfred/features/dalle.py:98 src/alfred/features/dalle.py:153
+msgid "prompt"
+msgstr "prompt"
+
+#: src/alfred/features/dalle.py:104 src/alfred/features/dalle.py:159
+msgid "size"
+msgstr "size"
+
+#: src/alfred/features/dalle.py:111 src/alfred/features/dalle.py:166
+msgid "quality"
+msgstr "quality"
+
+#: src/alfred/features/dalle.py:259
+msgid "Unable to download generated image."
+msgstr "Unable to download generated image."
 
 #: src/alfred/bot.py:29
 #, python-brace-format
@@ -196,6 +187,15 @@ msgstr "Disable the Discord commands for administrating {project_name}."
 #: src/alfred/config.py:383
 msgid "Alfred"
 msgstr "Alfred"
+
+#: src/alfred/cli.py:45
+#, python-brace-format
+msgid ""
+"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
+"conversationally and run commands on behalf of the server users."
+msgstr ""
+"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
+"conversationally and run commands on behalf of the server users."
 
 #, python-brace-format
 #~ msgid ""
