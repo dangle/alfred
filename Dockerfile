@@ -1,6 +1,6 @@
 FROM python:3.12-slim-bookworm
 
-ARG PDM_VERSION=2.17.0
+ARG PDM_VERSION=2.17.1
 
 RUN apt-get update \
   && export DEBIAN_FRONTEND=noninteractive \
