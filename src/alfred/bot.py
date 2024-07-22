@@ -8,10 +8,10 @@ from typing import Any
 import discord
 import structlog
 
-from .config import NOT_GIVEN, CommandLineFlag, EnvironmentVariable, config, csv
-from .exceptions import FeatureNotFoundError
-from .features import features as features_
-from .translation import gettext as _
+from alfred.config import NOT_GIVEN, CommandLineFlag, EnvironmentVariable, config, csv
+from alfred.exceptions import FeatureNotFoundError
+from alfred.features import features as features_
+from alfred.translation import gettext as _
 
 __all__ = (
     "Bot",
@@ -105,7 +105,7 @@ class Bot(discord.Bot):
         disable_admin_commands: bool = False,
         **kwargs: Any,
     ) -> None:
-        from .features.admin import __feature__
+        from alfred.features.admin import __feature__
 
         features_to_enable: set[str] = set(
             features if features and features is not NOT_GIVEN else features_.all_features,

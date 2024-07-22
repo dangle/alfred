@@ -46,21 +46,21 @@ import typing
 import dotenv
 import structlog
 
-from . import __version__
-from .exceptions import (
+from alfred import __version__
+from alfred.exceptions import (
     ConfigurationError,
     EnvironmentVariableError,
     FlagError,
     ReadonlyConfigurationError,
     RequiredValueError,
 )
-from .translation import gettext as _
+from alfred.translation import gettext as _
 
 if typing.TYPE_CHECKING:
     from collections.abc import Container, Generator, Iterable
     from typing import Any, Literal
 
-    from .typing import ArgParseAction, ConfigProcessor
+    from alfred.typing import ArgParseAction, ConfigProcessor
 
 
 __all__ = (

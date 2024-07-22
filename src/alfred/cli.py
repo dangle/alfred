@@ -10,11 +10,11 @@ import sys
 
 import structlog
 
-from . import __project_package__, bot, logging, translation
-from . import exceptions as exc
-from .config import CommandLineFlag, config
-from .features import features
-from .translation import gettext as _
+from alfred import __project_package__, bot, logging, translation
+from alfred import exceptions as exc
+from alfred.config import CommandLineFlag, config
+from alfred.features import features
+from alfred.translation import gettext as _
 
 __all__ = ("run",)
 

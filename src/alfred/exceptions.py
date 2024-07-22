@@ -3,7 +3,7 @@
 import os
 import typing
 
-from .typing import ExitCode
+from alfred.typing import ExitCode
 
 __all__ = (
     "BotError",

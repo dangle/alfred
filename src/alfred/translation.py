@@ -4,7 +4,7 @@ import gettext as gettext_
 import pathlib
 from collections.abc import Callable
 
-from . import __project_package__
+from alfred import __project_package__
 
 __all__ = (
     "bind",
