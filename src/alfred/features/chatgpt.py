@@ -194,6 +194,8 @@ def setup(bot: bot.Bot) -> None:
 
 @dataclasses.dataclass
 class _Tool:
+    """A dataclass for storing mappings of commands to tools."""
+
     command: discord.ApplicationCommand
     tool: ChatCompletionToolParam
 
