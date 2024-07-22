@@ -5,6 +5,10 @@ Attributes
 config : _Config
     An instance of `_Config` that can be globally accessed for sharing processed attributes from
     command-line flags and environment variables.
+NotGivenType : type
+    The type of NOT_GIVEN to be used in type annotations.
+NOT_GIVEN : Final[Literal[NotGivenType]]
+    A constant literal that indicates that a configuration value was not given.
 
 Examples
 --------
@@ -58,7 +62,7 @@ from alfred.translation import gettext as _
 
 if typing.TYPE_CHECKING:
     from collections.abc import Container, Generator, Iterable
-    from typing import Any, Literal
+    from typing import Any, Final, Literal
 
     from alfred.typing import ArgParseAction, ConfigProcessor
 
@@ -68,6 +72,7 @@ __all__ = (
     "csv",
     "CommandLineFlag",
     "EnvironmentVariable",
+    "NotGivenType",
     "NOT_GIVEN",
 )
 
@@ -75,10 +80,13 @@ log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class _NotGiven(enum.Enum):
-    NOT_GIVEN = object()
+    """A sentinel type that can be used in `Literal`."""
+
+    NOT_GIVEN = enum.auto()
 
 
-NOT_GIVEN = _NotGiven.NOT_GIVEN
+type NotGivenType = Literal[_NotGiven.NOT_GIVEN]
+NOT_GIVEN: Final[Literal[NotGivenType]] = _NotGiven.NOT_GIVEN
 
 
 def csv(value: str) -> list[str]:
@@ -108,7 +116,7 @@ class EnvironmentVariable:
     #: The expected type of the environment variable. The string value of the environment variable
     #:     will be cast to this type.
     #:     If unsupplied, the value will be returned unchanged.
-    type: ConfigProcessor | Literal[NOT_GIVEN] = NOT_GIVEN
+    type: ConfigProcessor | NotGivenType = NOT_GIVEN
 
 
 @dataclasses.dataclass
@@ -127,17 +135,17 @@ class CommandLineFlag:
 
     #: An alias of the command.
     #: This is often the short optional flag ("-f").
-    short: str | Literal[NOT_GIVEN] = NOT_GIVEN
+    short: str | NotGivenType = NOT_GIVEN
 
     # Supported `argparse.add_argument` flags.
     action: ArgParseAction = "store"
-    choices: Container[Any] | Literal[NOT_GIVEN] = NOT_GIVEN
+    choices: Container[Any] | NotGivenType = NOT_GIVEN
     const: Any = NOT_GIVEN
-    help: str | Literal[NOT_GIVEN] = NOT_GIVEN
-    metavar: str | Literal[NOT_GIVEN] = NOT_GIVEN
-    nargs: int | Literal["*", "?", "+", NOT_GIVEN] = NOT_GIVEN
-    type: ConfigProcessor | Literal[NOT_GIVEN] = NOT_GIVEN
-    version: str | Literal[NOT_GIVEN] = NOT_GIVEN
+    help: str | NotGivenType = NOT_GIVEN
+    metavar: str | NotGivenType = NOT_GIVEN
+    nargs: int | Literal["*", "?", "+", NotGivenType] = NOT_GIVEN
+    type: ConfigProcessor | NotGivenType = NOT_GIVEN
+    version: str | NotGivenType = NOT_GIVEN
 
 
 @dataclasses.dataclass
@@ -148,9 +156,9 @@ class _ConfigValue:
     ----------
     name : str
         The name of the configuration attribute that will be assigned the computed value.
-    env : EnvironmentVariable | Literal[NOT_GIVEN], optional
+    env : EnvironmentVariable | NotGivenType, optional
         The name of the environment variable, if given.
-    flag : CommandLineFlag | Literal[NOT_GIVEN], optional
+    flag : CommandLineFlag | NotGivenType, optional
         The name of the command-line flag, if given.
     required : bool, optional
         Whether or not this configuration attribute is required.
@@ -162,8 +170,8 @@ class _ConfigValue:
     """
 
     name: str
-    env: EnvironmentVariable | Literal[NOT_GIVEN] = NOT_GIVEN
-    flag: CommandLineFlag | Literal[NOT_GIVEN] = NOT_GIVEN
+    env: EnvironmentVariable | NotGivenType = NOT_GIVEN
+    flag: CommandLineFlag | NotGivenType = NOT_GIVEN
     required: bool = False
     default: Any = NOT_GIVEN
     _is_computed: bool = False
@@ -319,8 +327,8 @@ class _Config:
         self,
         name: str,
         *,
-        flag: CommandLineFlag | str | Literal[NOT_GIVEN] = NOT_GIVEN,
-        env: EnvironmentVariable | str | Literal[NOT_GIVEN] = NOT_GIVEN,
+        flag: CommandLineFlag | str | NotGivenType = NOT_GIVEN,
+        env: EnvironmentVariable | str | NotGivenType = NOT_GIVEN,
         default: Any = NOT_GIVEN,
         required: bool = False,
     ) -> None:
@@ -332,9 +340,9 @@ class _Config:
         ----------
         name : str
             The name of the configuration attribute to set.
-        env : CommandLineFlag | str | Literal[NOT_GIVEN], optional
+        env : CommandLineFlag | str | NotGivenType, optional
             The name of the environment variable, if given.
-        flag : EnvironmentVariable | str | Literal[NOT_GIVEN], optional
+        flag : EnvironmentVariable | str | NotGivenType, optional
             The name of the command-line flag, if given.
         default : Any, optional
             The value to return if neither the environment variable nor the command-line flag are
