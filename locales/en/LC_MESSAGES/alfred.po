@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-21 23:56+0000\n"
+"POT-Creation-Date: 2024-07-22 00:59+0000\n"
 "PO-Revision-Date: 2024-07-12 23:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -147,6 +147,22 @@ msgstr "Failed to reload feature: {feature}"
 msgid "Feature reloaded: {feature}"
 msgstr "Feature reloaded: {feature}"
 
+#: src/alfred/features/dalle.py:98 src/alfred/features/dalle.py:153
+msgid "prompt"
+msgstr "prompt"
+
+#: src/alfred/features/dalle.py:104 src/alfred/features/dalle.py:159
+msgid "size"
+msgstr "size"
+
+#: src/alfred/features/dalle.py:111 src/alfred/features/dalle.py:166
+msgid "quality"
+msgstr "quality"
+
+#: src/alfred/features/dalle.py:259
+msgid "Unable to download generated image."
+msgstr "Unable to download generated image."
+
 #: src/alfred/features/chatgpt.py:125
 #, fuzzy, python-brace-format
 msgid ""
@@ -180,22 +196,6 @@ msgid ""
 "A system message determines what role that {project_name} should play and "
 "how it should behave while communicating with users."
 msgstr ""
-
-#: src/alfred/features/dalle.py:98 src/alfred/features/dalle.py:153
-msgid "prompt"
-msgstr "prompt"
-
-#: src/alfred/features/dalle.py:104 src/alfred/features/dalle.py:159
-msgid "size"
-msgstr "size"
-
-#: src/alfred/features/dalle.py:111 src/alfred/features/dalle.py:166
-msgid "quality"
-msgstr "quality"
-
-#: src/alfred/features/dalle.py:259
-msgid "Unable to download generated image."
-msgstr "Unable to download generated image."
 
 #, python-brace-format
 #~ msgid ""

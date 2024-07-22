@@ -22,7 +22,7 @@ import enum
 import json
 import types
 from collections import defaultdict
-from typing import Any, cast, get_type_hints
+from typing import Any, Literal, cast, get_type_hints
 
 import discord
 import openai
@@ -211,7 +211,8 @@ class ChatGPT(commands.Cog):
     """
 
     # A custom response that the bot may return if it does not believe that it is being addressed.
-    _NO_RESPONSE = "__NO_RESPONSE__"
+    _NO_RESPONSE: str = "__NO_RESPONSE__"
+    _RETRY_BAD_RESPONSES: int = 3
 
     def __init__(self, bot: bot.Bot) -> None:
         self._bot = bot
@@ -429,7 +430,7 @@ class ChatGPT(commands.Cog):
                 await log.ainfo("Setting the bot status to online.")
                 await self._bot.change_presence(status=discord.enums.Status.online)
 
-            response: str | _ResponseType = await self._send_message(
+            response: str | _ResponseType = await self._get_chat_response_to_history(
                 message,
                 must_respond=must_respond,
             )
@@ -473,7 +474,7 @@ class ChatGPT(commands.Cog):
 
         return any(m.id == self._bot.application_id for m in message.mentions)
 
-    async def _send_message(
+    async def _get_chat_response_to_history(
         self,
         message: discord.Message,
         *,
@@ -494,36 +495,24 @@ class ChatGPT(commands.Cog):
 
         Returns
         -------
-        str | None
+        str | _ResponseType
             Returns the response from the chat service if the bot believes that it is being
             addressed.
+            If the bot does not respond directly to this call it returns a `_ResponseType` object
+            detailing why.
 
         """
         # TODO: This method should take chunks of older messages and convert them into embeddings.
         # TODO: Add a database for history?
 
-        tools = [tool.tool for tool in self._tools.values()] or openai.NOT_GIVEN
-
         try:
-            response: ChatCompletion = await self._call_chat(
+            assistant_message = await self._get_assistant_message(
                 message,
-                tools=tools,
-                messages=self._get_chat_context(message, must_respond=must_respond),
-                n=2,
+                must_respond=must_respond,
             )
-            if response.choices[0].message.tool_calls:
-                await self._call_tool(message, response.choices[0].message)
-                return _ResponseType.ToolCall
         except openai.OpenAIError as e:
             await log.aerror("An error occurred while querying the chat service.", exc_info=e)
-            return _ResponseType.NoResponse
-
-        assistant_message: str | None = None
-
-        for choice in response.choices:
-            if choice.message.content and not choice.message.content.startswith(message.content):
-                assistant_message = choice.message.content
-                break
+            return _ResponseType.BadResponse
 
         if assistant_message == self._NO_RESPONSE:
             return _ResponseType.NoResponse
@@ -537,8 +526,67 @@ class ChatGPT(commands.Cog):
             )
             return assistant_message
 
-        await log.aerror("Recevied a bad response from the chat service.", response=response)
+        await log.aerror("All responses from the chat service started with the prompt unmodified.")
         return _ResponseType.BadResponse
+
+    async def _get_assistant_message(
+        self,
+        message: discord.Message,
+        *,
+        must_respond: bool,
+    ) -> str | None | Literal[_ResponseType.ToolCall]:
+        """Send a message to the chat service with historical context and return the response.
+
+        If the response is the same as the message prompt, this will retry the message with each
+        request asking for more choices.
+
+        If `must_respond` is `False` this will prepend a system message that allows the bot to
+        determine if it believes it is being addressed. If it is not being addressed, this will not
+        return a response.
+
+        Parameters
+        ----------
+        message : discord.Message
+            The message to which the bot would reply.
+        must_respond : bool
+            Determines if the bot may ignore the message.
+
+        Returns
+        -------
+        str | None | Literal[_ResponseType.ToolCall]
+            Returns the response from the chat service if the bot believes that it is being
+            addressed.
+            If the bot would instead call a tool, this returns `_ResponseType.ToolCall`.
+
+        """
+        tools = [tool.tool for tool in self._tools.values()] or openai.NOT_GIVEN
+        chat_context = self._get_chat_context(message, must_respond=must_respond)
+
+        for n in range(1, self._RETRY_BAD_RESPONSES + 1):
+            response: ChatCompletion = await self._call_chat(
+                message,
+                tools=tools,
+                messages=chat_context,
+                n=n,
+            )
+            await log.adebug(
+                "Got response from chat service.",
+                response=response,
+                message=message,
+                n=n,
+            )
+
+            if response.choices[0].message.tool_calls:
+                await self._call_tool(message, response.choices[0].message)
+                return _ResponseType.ToolCall
+
+            for choice in response.choices:
+                if choice.message.content and not choice.message.content.startswith(
+                    message.content,
+                ):
+                    return choice.message.content
+
+        return None
 
     async def _call_tool(
         self,
