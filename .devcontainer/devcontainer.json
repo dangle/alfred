@@ -39,7 +39,6 @@
         "ms-python.mypy-type-checker",
         "ms-python.isort",
         "ms-python.black-formatter",
-        "mads-hartmann.bash-ide-vscode",
         "ms-azuretools.vscode-docker",
         "tamasfe.even-better-toml",
         "github.vscode-github-actions",
@@ -56,9 +55,11 @@
       ],
       "settings": {
         "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.experiments.enabled": false,
         "[python]": {
           "editor.defaultFormatter": "ms-python.black-formatter",
-          "editor.formatOnSave": true,          "editor.insertSpaces": true,
+          "editor.formatOnSave": true,
+          "editor.insertSpaces": true,
           "editor.tabSize": 4,
           "editor.codeActionsOnSave": {
             "source.organizeImports": "explicit"
