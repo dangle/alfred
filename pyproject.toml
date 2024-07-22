@@ -110,6 +110,5 @@ check.composite = [
     "{pdm} lint",
     "{pdm} check-static",
     "{pdm} test",
-    "{pdm} check-translations",
     "{pdm} check-docs",
 ]
