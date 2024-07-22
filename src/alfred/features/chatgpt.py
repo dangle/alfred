@@ -2,22 +2,18 @@
 
 Listeners
 ---------
-begin_status : on_ready
-    Sets the bot presence to idle on login and starts the `ChatGPT.watch_status` task.
 listen : on_message
     Listens to private messages and messages in channels the bot is in and optionally returns a
     response from the chat service.
+wait_for_corrections : on_waiting_for_corrections
+    Sets the bot presence to "Waiting for corrections" for one minute after the bot is explicitly
+    addressed by name.
 
-Tasks
------
-watch_status : every minute
-    Sets the bot presence to idle if it has not been explicitly addressed within the last minute.
 """
 
 import asyncio
 import builtins
 import dataclasses
-import datetime
 import enum
 import json
 import types
@@ -27,7 +23,7 @@ from typing import Any, Literal, cast, get_type_hints
 import discord
 import openai
 import structlog
-from discord.ext import commands, tasks
+from discord.ext import commands
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -65,14 +61,6 @@ __intents__ = discord.Intents(
 __feature__: str = "ChatGPT"
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
-
-
-class _ResponseType(enum.Enum):
-    """Response types for when the bot would not respond to a prompt."""
-
-    ToolCall = enum.auto()
-    NoResponse = enum.auto()
-    BadResponse = enum.auto()
 
 
 class _ChatGPTModels(enum.StrEnum):
@@ -172,6 +160,17 @@ config(
     ),
 )
 
+_WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
+_THINKING = discord.CustomActivity(_("Thinking"))
+
+
+class _ResponseType(enum.Enum):
+    """Response types for when the bot would not respond to a prompt."""
+
+    ToolCall = enum.auto()
+    NoResponse = enum.auto()
+    BadResponse = enum.auto()
+
 
 def setup(bot: bot.Bot) -> None:
     """Add this feature `commands.Cog` to the `bot.Bot`.
@@ -213,6 +212,7 @@ class ChatGPT(commands.Cog):
     # A custom response that the bot may return if it does not believe that it is being addressed.
     _NO_RESPONSE: str = "__NO_RESPONSE__"
     _RETRY_BAD_RESPONSES: int = 3
+    _TIME_TO_WAIT_FOR_CORRECTIONS_S: int = 60
 
     def __init__(self, bot: bot.Bot) -> None:
         self._bot = bot
@@ -222,7 +222,6 @@ class ChatGPT(commands.Cog):
             "If you do not believe a message is intended for you, respond with:"
             f" {self._NO_RESPONSE}\n"
         )
-        self._explicit_interaction_time: datetime.datetime = datetime.datetime.now(datetime.UTC)
         self._tools: dict[str, _Tool] = {}
 
     @commands.Cog.listener("on_ready", once=True)
@@ -366,29 +365,6 @@ class ChatGPT(commands.Cog):
             f"Unable to convert {input_type!r} to a valid format for the chat service.",
         )
 
-    @commands.Cog.listener("on_ready", once=True)
-    async def begin_status(self) -> None:
-        """Set the bot presence to idle on login and start the `self.watch_status` task."""
-        if self.watch_status.is_running():
-            return
-
-        await log.ainfo("Starting bot presence management.")
-        await self._bot.change_presence(status=discord.enums.Status.idle)
-        self.watch_status.start()
-
-    @tasks.loop(minutes=1.0)
-    async def watch_status(self) -> None:
-        """Set the bot presence to idle if it has not recently been explicitly addressed."""
-        if not await (is_active := self._bot.is_active()):
-            await log.adebug("Checking bot presence status.", is_active=is_active)
-            return
-
-        if datetime.datetime.now(
-            datetime.UTC,
-        ) >= self._explicit_interaction_time + datetime.timedelta(minutes=1):
-            await log.ainfo("Setting the bot status to idle.")
-            await self._bot.change_presence(status=discord.enums.Status.idle)
-
     @commands.Cog.listener("on_message")
     async def listen(self, message: discord.Message) -> None:
         """Listen and respond to Discord chat messages.
@@ -422,29 +398,35 @@ class ChatGPT(commands.Cog):
 
             must_respond: bool = self._must_respond(message)
 
-            if not must_respond and not await self._bot.is_active():
+            if not must_respond and _WAITING_FOR_CORRECTIONS not in self._bot.activities:
                 return
 
+            async with self._bot.presence(activity=_THINKING, ephemeral=True):
+                response: str | _ResponseType = await self._get_chat_response_to_history(
+                    message,
+                    must_respond=must_respond,
+                )
+
+                match response:
+                    case _ResponseType.NoResponse | _ResponseType.BadResponse:
+                        await log.ainfo(
+                            f"Skipping response to message from {author}.",
+                            response=response,
+                        )
+                        return
+                    case _ResponseType.ToolCall:
+                        pass
+                    case _:
+                        await message.reply(response)
+
             if must_respond:
-                self._explicit_interaction_time = datetime.datetime.now(datetime.UTC)
-                await log.ainfo("Setting the bot status to online.")
-                await self._bot.change_presence(status=discord.enums.Status.online)
+                self._bot.dispatch("waiting_for_corrections")
 
-            response: str | _ResponseType = await self._get_chat_response_to_history(
-                message,
-                must_respond=must_respond,
-            )
-
-            match response:
-                case _ResponseType.NoResponse | _ResponseType.BadResponse:
-                    await log.ainfo(
-                        f"Skipping response to message from {author}.",
-                        response=response,
-                    )
-                case _ResponseType.ToolCall:
-                    pass
-                case _:
-                    await message.reply(response)
+    @commands.Cog.listener("on_waiting_for_corrections")
+    async def wait_for_corrections(self) -> None:
+        """Listen for the `on_waiting_for_corrections` event and set the bot activity."""
+        async with self._bot.presence(activity=_WAITING_FOR_CORRECTIONS):
+            await asyncio.sleep(self._TIME_TO_WAIT_FOR_CORRECTIONS_S)
 
     def _must_respond(self, message: discord.Message) -> bool:
         """Determine if the bot *must* respond to the given `message`.
@@ -504,6 +486,8 @@ class ChatGPT(commands.Cog):
         """
         # TODO: This method should take chunks of older messages and convert them into embeddings.
         # TODO: Add a database for history?
+
+        await self._bot.change_presence(activity=discord.CustomActivity(_("Thinking")))
 
         try:
             assistant_message = await self._get_assistant_message(
