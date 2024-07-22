@@ -28,19 +28,17 @@ __all__ = (
     "ExitCode",
 )
 
-type ArgParseAction = (
-    Literal[
-        "store",
-        "store_const",
-        "store_true",
-        "store_false",
-        "append",
-        "append_const",
-        "count",
-        "help",
-        "version",
-    ]
-)
+type ArgParseAction = Literal[
+    "store",
+    "store_const",
+    "store_true",
+    "store_false",
+    "append",
+    "append_const",
+    "count",
+    "help",
+    "version",
+]
 
 type ConfigProcessor = Callable[[str], Any]
 

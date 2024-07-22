@@ -58,13 +58,14 @@
         "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
         "[python]": {
           "editor.defaultFormatter": "ms-python.black-formatter",
-          "editor.formatOnSave": true,
+          "editor.formatOnSave": true,          "editor.insertSpaces": true,
+          "editor.tabSize": 4,
           "editor.codeActionsOnSave": {
             "source.organizeImports": "explicit"
           },
-          "isort.args": ["--profile", "black", "-l", "100"],
           "editor.rulers": [100]
         },
+        "isort.args": ["--profile", "black", "-l", "100"],
         "ruff.nativeServer": true,
         "autoDocstring.docstringFormat": "numpy"
       }
