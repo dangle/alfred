@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-22 05:55+0000\n"
+"POT-Creation-Date: 2024-07-22 18:52+0000\n"
 "PO-Revision-Date: 2024-07-12 23:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -98,22 +98,6 @@ msgstr "Failed to reload feature: {feature}"
 msgid "Feature reloaded: {feature}"
 msgstr "Feature reloaded: {feature}"
 
-#: src/alfred/features/dalle.py:109 src/alfred/features/dalle.py:165
-msgid "prompt"
-msgstr "prompt"
-
-#: src/alfred/features/dalle.py:115 src/alfred/features/dalle.py:171
-msgid "size"
-msgstr "size"
-
-#: src/alfred/features/dalle.py:122 src/alfred/features/dalle.py:178
-msgid "quality"
-msgstr "quality"
-
-#: src/alfred/features/dalle.py:272
-msgid "Unable to download generated image."
-msgstr "Unable to download generated image."
-
 #: src/alfred/features/chatgpt.py:113
 #, fuzzy, python-brace-format
 msgid ""
@@ -156,18 +140,21 @@ msgstr ""
 msgid "Thinking"
 msgstr ""
 
-#: src/alfred/cli.py:45
-#, python-brace-format
-msgid ""
-"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
-"conversationally and run commands on behalf of the server users."
-msgstr ""
-"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
-"conversationally and run commands on behalf of the server users."
+#: src/alfred/features/dalle.py:109 src/alfred/features/dalle.py:165
+msgid "prompt"
+msgstr "prompt"
 
-#: src/alfred/config.py:383
-msgid "Alfred"
-msgstr "Alfred"
+#: src/alfred/features/dalle.py:115 src/alfred/features/dalle.py:171
+msgid "size"
+msgstr "size"
+
+#: src/alfred/features/dalle.py:122 src/alfred/features/dalle.py:178
+msgid "quality"
+msgstr "quality"
+
+#: src/alfred/features/dalle.py:272
+msgid "Unable to download generated image."
+msgstr "Unable to download generated image."
 
 #: src/alfred/bot.py:40
 #, python-brace-format
@@ -204,6 +191,19 @@ msgstr ""
 #, python-brace-format
 msgid "Disable the Discord commands for administrating {project_name}."
 msgstr "Disable the Discord commands for administrating {project_name}."
+
+#: src/alfred/cli.py:45
+#, python-brace-format
+msgid ""
+"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
+"conversationally and run commands on behalf of the server users."
+msgstr ""
+"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
+"conversationally and run commands on behalf of the server users."
+
+#: src/alfred/config.py:391
+msgid "Alfred"
+msgstr "Alfred"
 
 #, python-brace-format
 #~ msgid ""

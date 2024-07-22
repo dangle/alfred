@@ -9,7 +9,7 @@ ConfigProcessor : type
 ExitCode : type
     The value returned when the program exits.
 Presence : type
-    A named tuple that holds bot a bot status and activity.
+    A named tuple that holds a bot status and activity.
 
 """
 
@@ -48,7 +48,7 @@ type ExitCode = int | None
 
 
 class Presence(typing.NamedTuple):
-    """A named tuple that holds bot a bot status and activity."""
+    """A named tuple that holds a bot status and activity."""
 
     status: discord.Status | None = None
     activity: discord.BaseActivity | None = None

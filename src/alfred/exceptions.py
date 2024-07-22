@@ -1,9 +1,14 @@
 """Exceptions for errors that occur during bot usage."""
 
+from __future__ import annotations
+
 import os
 import typing
 
-from alfred.typing import ExitCode
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from alfred.typing import ExitCode
 
 __all__ = (
     "BotError",
@@ -42,12 +47,12 @@ class BotError(Exception):
         self.message: str = message
         self.exit_code: ExitCode = exit_code
 
-    def __reduce__[T: BotError](self) -> tuple[T, tuple[typing.Any, ...]]:  # type: ignore[name-defined]
+    def __reduce__(self) -> tuple[type[BotError], tuple[Any, ...]]:
         """Allow instances of this exception to be serialized.
 
         Returns
         -------
-        tuple[T, tuple[typing.Any, ...]]
+        tuple[T, tuple[Any, ...]]
             A tuple containing the class of this specific instance and another tuple containing all
             attributes that can be serialized.
 
@@ -74,12 +79,12 @@ class ImageDownloadError(BotError):
         This is always `None`.
     image_uri : str
         The URI of the image that failed to download.
-    context : dict[str, typing.Any]
+    context : dict[str, Any]
         Optional extra information relevant to why the download failed.
 
     """
 
-    def __init__(self, image_uri: str, **context: typing.Any) -> None:
+    def __init__(self, image_uri: str, **context: Any) -> None:
         super().__init__(f"Unable to download image at URI: {image_uri}")
         self.image_uri: str = image_uri
         self.context = context
@@ -266,4 +271,5 @@ class FeatureNotFoundError(FeatureError):
     """
 
     def __init__(self, feature: str) -> None:
+        super().__init__(feature, f"Feature not found: {feature}")
         super().__init__(feature, f"Feature not found: {feature}")
