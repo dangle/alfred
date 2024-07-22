@@ -103,6 +103,7 @@ update-doc-stubs = "make update-doc-stubs"
 generate-docs = "make generate-docs"
 check-docs = "make check-docs"
 
+pre_release = "{pdm} check"
 release = "make release"
 
 check.composite = [
