@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-22 00:59+0000\n"
+"POT-Creation-Date: 2024-07-22 05:55+0000\n"
 "PO-Revision-Date: 2024-07-12 23:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -16,55 +16,6 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-
-#: src/alfred/bot.py:29
-#, python-brace-format
-msgid "The Discord authentication token for {project_name}."
-msgstr ""
-
-#: src/alfred/bot.py:45
-#, fuzzy, python-brace-format
-msgid ""
-"The guild (server) IDs of servers on which to enable {project_name} "
-"commands.\n"
-"If no guild IDs are given, commands will be registered as global and will "
-"take up to an hour to become usable."
-msgstr ""
-"The guild (server) IDs of servers on which to enable {project_name} "
-"commands.\n"
-"If not supplied, {project_name} will look for the DISCORD_GUILD_IDS "
-"environment variable.\n"
-"If no guild IDs are given, commands will be registered as global and will "
-"take up to an hour to become usable."
-
-#: src/alfred/bot.py:63
-#, fuzzy, python-brace-format
-msgid ""
-"{project_name} features to enable.\n"
-"If no features are given, all features will be enabled by default."
-msgstr ""
-"{project_name} features to enable.\n"
-"If not supplied, {project_name} will look for the ALFRED_ENABLED_FEATURES "
-"environment variable.\n"
-"If no features are given, all features will be enabled by default."
-
-#: src/alfred/bot.py:75
-#, python-brace-format
-msgid "Disable the Discord commands for administrating {project_name}."
-msgstr "Disable the Discord commands for administrating {project_name}."
-
-#: src/alfred/cli.py:45
-#, python-brace-format
-msgid ""
-"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
-"conversationally and run commands on behalf of the server users."
-msgstr ""
-"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
-"conversationally and run commands on behalf of the server users."
-
-#: src/alfred/config.py:383
-msgid "Alfred"
-msgstr "Alfred"
 
 #: src/alfred/features/_ai.py:31
 #, fuzzy, python-brace-format
@@ -147,23 +98,23 @@ msgstr "Failed to reload feature: {feature}"
 msgid "Feature reloaded: {feature}"
 msgstr "Feature reloaded: {feature}"
 
-#: src/alfred/features/dalle.py:98 src/alfred/features/dalle.py:153
+#: src/alfred/features/dalle.py:109 src/alfred/features/dalle.py:165
 msgid "prompt"
 msgstr "prompt"
 
-#: src/alfred/features/dalle.py:104 src/alfred/features/dalle.py:159
+#: src/alfred/features/dalle.py:115 src/alfred/features/dalle.py:171
 msgid "size"
 msgstr "size"
 
-#: src/alfred/features/dalle.py:111 src/alfred/features/dalle.py:166
+#: src/alfred/features/dalle.py:122 src/alfred/features/dalle.py:178
 msgid "quality"
 msgstr "quality"
 
-#: src/alfred/features/dalle.py:259
+#: src/alfred/features/dalle.py:272
 msgid "Unable to download generated image."
 msgstr "Unable to download generated image."
 
-#: src/alfred/features/chatgpt.py:125
+#: src/alfred/features/chatgpt.py:113
 #, fuzzy, python-brace-format
 msgid ""
 "The ChatGPT model to use to power {project_name}'s conversational "
@@ -175,7 +126,7 @@ msgstr ""
 "environment variable.\n"
 "If no features are given, all features will be enabled by default."
 
-#: src/alfred/features/chatgpt.py:144
+#: src/alfred/features/chatgpt.py:132
 #, fuzzy, python-brace-format
 msgid ""
 "The ChatGPT temperature to use for {project_name}'s conversational "
@@ -190,12 +141,69 @@ msgstr ""
 "environment variable.\n"
 "If no features are given, all features will be enabled by default."
 
-#: src/alfred/features/chatgpt.py:163
+#: src/alfred/features/chatgpt.py:151
 #, python-brace-format
 msgid ""
 "A system message determines what role that {project_name} should play and "
 "how it should behave while communicating with users."
 msgstr ""
+
+#: src/alfred/features/chatgpt.py:163
+msgid "Waiting for corrections"
+msgstr ""
+
+#: src/alfred/features/chatgpt.py:164 src/alfred/features/chatgpt.py:490
+msgid "Thinking"
+msgstr ""
+
+#: src/alfred/cli.py:45
+#, python-brace-format
+msgid ""
+"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
+"conversationally and run commands on behalf of the server users."
+msgstr ""
+"{project_name} is an extensible Discord bot that can use ChatGPT to respond "
+"conversationally and run commands on behalf of the server users."
+
+#: src/alfred/config.py:383
+msgid "Alfred"
+msgstr "Alfred"
+
+#: src/alfred/bot.py:40
+#, python-brace-format
+msgid "The Discord authentication token for {project_name}."
+msgstr ""
+
+#: src/alfred/bot.py:56
+#, fuzzy, python-brace-format
+msgid ""
+"The guild (server) IDs of servers on which to enable {project_name} "
+"commands.\n"
+"If no guild IDs are given, commands will be registered as global and will "
+"take up to an hour to become usable."
+msgstr ""
+"The guild (server) IDs of servers on which to enable {project_name} "
+"commands.\n"
+"If not supplied, {project_name} will look for the DISCORD_GUILD_IDS "
+"environment variable.\n"
+"If no guild IDs are given, commands will be registered as global and will "
+"take up to an hour to become usable."
+
+#: src/alfred/bot.py:74
+#, fuzzy, python-brace-format
+msgid ""
+"{project_name} features to enable.\n"
+"If no features are given, all features will be enabled by default."
+msgstr ""
+"{project_name} features to enable.\n"
+"If not supplied, {project_name} will look for the ALFRED_ENABLED_FEATURES "
+"environment variable.\n"
+"If no features are given, all features will be enabled by default."
+
+#: src/alfred/bot.py:86
+#, python-brace-format
+msgid "Disable the Discord commands for administrating {project_name}."
+msgstr "Disable the Discord commands for administrating {project_name}."
 
 #, python-brace-format
 #~ msgid ""

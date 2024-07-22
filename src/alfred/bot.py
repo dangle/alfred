@@ -1,9 +1,14 @@
 """Contains the main extensible `Bot` class and helpers for running the event loop."""
 
+from __future__ import annotations
+
+import asyncio
+import collections
+import contextlib
 import importlib
 import sys
-from collections.abc import Iterable
-from typing import Any
+import time
+import typing
 
 import discord
 import structlog
@@ -12,6 +17,12 @@ from alfred.config import NOT_GIVEN, CommandLineFlag, EnvironmentVariable, confi
 from alfred.exceptions import FeatureNotFoundError
 from alfred.features import features as features_
 from alfred.translation import gettext as _
+from alfred.typing import Presence
+
+if typing.TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable
+    from typing import Any
+
 
 __all__ = (
     "Bot",
@@ -105,6 +116,9 @@ class Bot(discord.Bot):
         disable_admin_commands: bool = False,
         **kwargs: Any,
     ) -> None:
+        self._presence_map: collections.OrderedDict[float, Presence] = collections.OrderedDict()
+        self._presence_lock = asyncio.Lock()
+
         from alfred.features.admin import __feature__
 
         features_to_enable: set[str] = set(
@@ -328,25 +342,97 @@ class Bot(discord.Bot):
         with config.readonly:
             self.load_extensions(*feature_modules)
 
-    async def is_active(self) -> bool:
-        """Determine if the bot presence is online.
+    @property
+    def activities(self) -> set[discord.BaseActivity]:
+        """Return a set containing all active bot activities.
 
         Returns
         -------
-            `True` if the bot has a presence that is set to `discord.enums.Status.online`.
-            `False` if the bot has any other presence value.
+        set[discord.BaseActivity]
+            A set of all active bot activities.
 
         """
-        if not self._bot.application_id or not self._bot.guilds:
-            return False
+        return {p.activity for p in self._presence_map.values() if p.activity}
 
-        guild = self._bot.guilds[0]
-        member = guild.get_member(self._bot.application_id)
+    @property
+    def current_presence(self) -> Presence:
+        """The current `Presence` of the bot.
 
-        if not member:
-            return False
+        Returns
+        -------
+        Presence
+            The current `Presence` of the bot.
 
-        return member.status == discord.enums.Status.online
+        """
+        if not self._presence_map:
+            return Presence()
+
+        latest_presence_key: float = next(reversed(self._presence_map))
+        return self._presence_map[latest_presence_key]
+
+    @contextlib.asynccontextmanager
+    async def presence(
+        self,
+        *,
+        status: discord.Status | None = None,
+        activity: discord.BaseActivity | None = None,
+        ephemeral: bool = False,
+    ) -> AsyncIterator:
+        """Temporarily set the `Presence` of the bot.
+
+        Parameters
+        ----------
+        status : discord.Status | None, optional
+            The `discord.Status` of the `Presence` to set.
+        activity : discord.BaseActivity | None, optional
+            The `discord.BaseActivity` of the `Presence` to set.
+        ephemeral : bool, optional
+            Whether or not to store the `Presence` to be restored if it is replaced.
+            By default all `Presences` are stored for the duration of the context manager.
+
+        Returns
+        -------
+        AsyncIterator
+            The coroutine of the async context manager.
+
+        """
+        presence: Presence = Presence(status, activity)
+        uid: float = time.time() + hash(presence)
+
+        if not ephemeral:
+            async with self._presences() as presences:
+                presences[uid] = presence
+
+        await log.ainfo("Setting bot presence.", presence=presence)
+        await self._bot.change_presence(**presence._asdict())
+
+        try:
+            yield
+        finally:
+            if not ephemeral:
+                async with self._presences() as presences:
+                    del presences[uid]
+
+            await log.ainfo("Setting presence.", presence=self.current_presence)
+            await self._bot.change_presence(**self.current_presence._asdict())
+
+    @contextlib.asynccontextmanager
+    async def _presences(self) -> AsyncIterator:
+        """Get the lock on the bot presence and return all `Presences`.
+
+        Returns
+        -------
+        AsyncIterator
+            The coroutine of the context manager.
+
+        Yields
+        ------
+        Iterator[AsyncIterator]
+            The `Presence` map used by the bot internally.
+
+        """
+        async with self._presence_lock:
+            yield self._presence_map
 
     def get_user_name(self, user: discord.User | discord.Member) -> str:
         """Get the nickname or display name of the user or member.

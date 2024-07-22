@@ -24,6 +24,7 @@ import openai
 import structlog
 from discord.ext import commands
 
+from alfred import bot
 from alfred import exceptions as exc
 from alfred.config import config
 from alfred.features import _ai
@@ -39,7 +40,7 @@ log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
 _ai.configure_ai()
 
 
-def setup(bot: discord.Bot) -> None:
+def setup(bot: bot.Bot) -> None:
     """Add this feature `commands.Cog` to the `bot.Bot`.
 
     If the `openai.AsyncOpenAI` client has not been configured as the `ai` configuration attribute
@@ -52,10 +53,17 @@ def setup(bot: discord.Bot) -> None:
 
     """
     if config.ai:
-        bot.add_cog(DallE())
+        bot.add_cog(DallE(bot))
         return
 
     log.info(f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}')
+
+
+class _DrawPresence(enum.Enum):
+    """Presence messages for drawing with different models."""
+
+    DALL_E_2 = discord.CustomActivity("Drawing an image with DALL-E 2")
+    DALL_E_3 = discord.CustomActivity("Drawing an image with DALL-E 3")
 
 
 class _Model(enum.StrEnum):
@@ -92,6 +100,9 @@ class DallE(commands.Cog):
     """Manages AI art interactions and commands in the bot."""
 
     draw = discord.SlashCommandGroup("draw", "Commands for drawing images using DALL-E.")
+
+    def __init__(self, bot: bot.Bot) -> None:
+        self._bot = bot
 
     @draw.command(name=_Model.DALL_E_3.value, guild_ids=config.guild_ids)
     @discord.option(
@@ -140,13 +151,14 @@ class DallE(commands.Cog):
             If this is not specified it will default to "standard".
 
         """
-        await self._generate_image(
-            ctx,
-            prompt=prompt,
-            size=size,
-            quality=quality,
-            model=_Model.DALL_E_3.value,
-        )
+        async with self._bot.presence(activity=_DrawPresence.DALL_E_3.value):
+            await self._generate_image(
+                ctx,
+                prompt=prompt,
+                size=size,
+                quality=quality,
+                model=_Model.DALL_E_3.value,
+            )
 
     @draw.command(name=_Model.DALL_E_2.value, guild_ids=config.guild_ids)
     @discord.option(
@@ -195,13 +207,14 @@ class DallE(commands.Cog):
             If this is not specified it will default to "standard".
 
         """
-        await self._generate_image(
-            ctx,
-            prompt=prompt,
-            size=size,
-            quality=quality,
-            model=_Model.DALL_E_2.value,
-        )
+        async with self._bot.presence(activity=_DrawPresence.DALL_E_2.value):
+            await self._generate_image(
+                ctx,
+                prompt=prompt,
+                size=size,
+                quality=quality,
+                model=_Model.DALL_E_2.value,
+            )
 
     async def _generate_image(
         self,
