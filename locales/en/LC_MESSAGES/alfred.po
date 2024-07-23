@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-23 07:32+0000\n"
+"POT-Creation-Date: 2024-07-23 08:42+0000\n"
 "PO-Revision-Date: 2024-07-12 23:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -114,7 +114,7 @@ msgstr "quality"
 msgid "Unable to download generated image."
 msgstr "Unable to download generated image."
 
-#: src/alfred/features/chatgpt.py:159
+#: src/alfred/features/chatgpt.py:164
 #, fuzzy, python-brace-format
 msgid ""
 "The ChatGPT model to use to power {project_name}'s conversational "
@@ -126,7 +126,7 @@ msgstr ""
 "environment variable.\n"
 "If no features are given, all features will be enabled by default."
 
-#: src/alfred/features/chatgpt.py:178
+#: src/alfred/features/chatgpt.py:183
 #, fuzzy, python-brace-format
 msgid ""
 "The ChatGPT temperature to use for {project_name}'s conversational "
@@ -141,29 +141,29 @@ msgstr ""
 "environment variable.\n"
 "If no features are given, all features will be enabled by default."
 
-#: src/alfred/features/chatgpt.py:197
+#: src/alfred/features/chatgpt.py:202
 #, python-brace-format
 msgid ""
 "A system message determines what role that {project_name} should play and "
 "how it should behave while communicating with users by default."
 msgstr ""
 
-#: src/alfred/features/chatgpt.py:232
+#: src/alfred/features/chatgpt.py:237
 msgid "Waiting for corrections"
 msgstr ""
 
-#: src/alfred/features/chatgpt.py:233 src/alfred/features/chatgpt.py:576
+#: src/alfred/features/chatgpt.py:238 src/alfred/features/chatgpt.py:594
 msgid "Thinking"
 msgstr ""
 
-#: src/alfred/features/chatgpt.py:289
+#: src/alfred/features/chatgpt.py:294
 #, python-brace-format
 msgid ""
 "If you do not believe a message is intended for you, respond with: "
 "{response}\n"
 msgstr ""
 
-#: src/alfred/features/chatgpt.py:292
+#: src/alfred/features/chatgpt.py:297
 msgid ""
 "If multiple functions could be returned, pick one instead of asking which "
 "function to use.\n"
