@@ -23,6 +23,7 @@ from typing import Any, Literal, cast, get_type_hints
 import discord
 import openai
 import structlog
+import yaml
 from discord.ext import commands
 from openai.types.chat import (
     ChatCompletion,
@@ -63,6 +64,14 @@ __feature__: str = "ChatGPT"
 log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
 
 
+_DEFAULT_SYSTEM_MESSAGE: str = (
+    "You are a helpful and formal butler listening in to a chat server.\n"
+    f"You will respond to the name {config.bot_name}.\n"
+    "You will respond using honorifics.\n"
+    "Do not ask follow-up questions.\n"
+)
+
+
 class _ChatGPTModels(enum.StrEnum):
     """Valid ChatGPT models."""
 
@@ -70,6 +79,43 @@ class _ChatGPTModels(enum.StrEnum):
     GPT_4_TURBO = "gpt-4-turbo"
     GPT_4 = "gpt-4"
     GPT_3_5_TURBO = "gpt-3.5-turbo"
+
+
+@dataclasses.dataclass
+class _GuildCustomization:
+    """Attributes that can be customized per guild."""
+
+    #: The guild ID to which this customization applies.
+    id: int
+
+    #: The name that the bot *must* respond to in this guild.
+    #: If not specified it will default to the default bot name.
+    name: str | None
+
+    #: The system message to send with messages in this guild.
+    description: str
+
+
+def guild_customizations(value: str) -> dict[int, _GuildCustomization]:
+    data = yaml.safe_load(value.strip())
+
+    if not isinstance(data, dict):
+        raise TypeError("Expected a JSON or YAML mapping of guild IDs to customizations")
+
+    output: dict[int, _GuildCustomization] = {}
+
+    for k, v in data.items():
+        if not k or not v or not isinstance(v, dict):
+            raise TypeError("Expected values for guild IDs and customizations")
+
+        id_ = int(k)
+        output[id_] = _GuildCustomization(
+            id=id_,
+            name=v.get("name"),
+            description=v.get("system_message", ""),
+        )
+
+    return output
 
 
 def temperature(value: str) -> float:
@@ -114,10 +160,10 @@ config(
             'If no model is given, the model will default to "{default}".',
         ).format(
             project_name=config.bot_name,
-            default=_ChatGPTModels.GPT_4O.value,
+            default=_ChatGPTModels.GPT_4O,
         ),
     ),
-    default=_ChatGPTModels.GPT_4O.value,
+    default=_ChatGPTModels.GPT_4O,
 )
 config(
     "chatgpt_temperature",
@@ -149,27 +195,19 @@ config(
         short="-m",
         help=_(
             "A system message determines what role that {project_name} should play and how it"
-            " should behave while communicating with users.",
+            " should behave while communicating with users by default.",
         ).format(project_name=config.bot_name),
     ),
-    default=(
-        "You are a helpful and formal butler listening in to a chat server.\n"
-        f"You will respond to the name {config.bot_name}.\n"
-        "You will respond using honorifics.\n"
-        "Do not ask follow-up questions.\n"
-    ),
+    default=_DEFAULT_SYSTEM_MESSAGE,
 )
-
-_WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
-_THINKING = discord.CustomActivity(_("Thinking"))
-
-
-class _ResponseType(enum.Enum):
-    """Response types for when the bot would not respond to a prompt."""
-
-    ToolCall = enum.auto()
-    NoResponse = enum.auto()
-    BadResponse = enum.auto()
+config(
+    "chatgpt_guild_customizations",
+    env=EnvironmentVariable(
+        name="CHATGPT_GUILD_CUSTOMIZATIONS",
+        type=guild_customizations,
+    ),
+    default={},
+)
 
 
 def setup(bot: bot.Bot) -> None:
@@ -189,6 +227,33 @@ def setup(bot: bot.Bot) -> None:
         return
 
     log.info(f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}')
+
+
+_WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
+_THINKING = discord.CustomActivity(_("Thinking"))
+
+
+class _ResponseType(enum.Enum):
+    """Response types for when the bot would not respond to a prompt."""
+
+    ToolCall = enum.auto()
+    NoResponse = enum.auto()
+    BadResponse = enum.auto()
+
+
+class _MessageRole:
+    """Valid chat service message roles."""
+
+    Assistant: Literal["assistant"] = "assistant"
+    System: Literal["system"] = "system"
+    Tool: Literal["tool"] = "tool"
+    User: Literal["user"] = "user"
+
+
+class _ToolParamType:
+    """Valid chat service types for tools."""
+
+    Function: Literal["function"] = "function"
 
 
 @dataclasses.dataclass
@@ -216,13 +281,36 @@ class ChatGPT(commands.Cog):
 
     def __init__(self, bot: bot.Bot) -> None:
         self._bot = bot
+
         self._history: dict[int, list[ChatCompletionMessageParam]] = defaultdict(list)
         self._history_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
-        self._control_message: str = (
-            "If you do not believe a message is intended for you, respond with:"
-            f" {self._NO_RESPONSE}\n"
+
+        self._control_message: str = _(
+            "If you do not believe a message is intended for you, respond with: {response}\n",
+        ).format(response=self._NO_RESPONSE)
+        self._tool_message: str = _(
+            "If multiple functions could be returned, pick one instead of asking which function to"
+            " use.\n"
+            "If you are get a file from a function, do *NOT* try to embed it with  markdown"
+            " syntax.\n",
         )
         self._tools: dict[str, _Tool] = {}
+
+        self._guild_customizations: dict[int | None, _GuildCustomization] = {
+            None: _GuildCustomization(
+                id=0,
+                name=config.bot_name,
+                description=(
+                    (config.chatgpt_system_message or "").strip() or _DEFAULT_SYSTEM_MESSAGE
+                ),
+            ),
+        }
+
+        if isinstance(config.chatgpt_guild_customizations, dict):
+            for id_, c in config.chatgpt_guild_customizations.items():
+                self._guild_customizations[id_] = c
+
+        log.info("Using guild customizations", customizations=self._guild_customizations)
 
     @commands.Cog.listener("on_ready", once=True)
     async def add_tools(self) -> None:
@@ -325,7 +413,7 @@ class ChatGPT(commands.Cog):
                 description=command.callback.__doc__ or "",
                 parameters=parameters,
             ),
-            type="function",
+            type=_ToolParamType.Function,
         )
 
     def _convert_input_type_to_str(self, input_type: discord.enums.SlashCommandOptionType) -> str:
@@ -390,7 +478,7 @@ class ChatGPT(commands.Cog):
         async with self._history_locks[message.channel.id]:
             self._history[message.channel.id].append(
                 ChatCompletionUserMessageParam(
-                    role="user",
+                    role=_MessageRole.User,
                     content=message.content,
                     name=author,
                 ),
@@ -451,10 +539,11 @@ class ChatGPT(commands.Cog):
         if isinstance(message, discord.DMChannel):
             return True
 
-        if config.bot_name.lower() in message.content.lower():
+        if any(m.id == self._bot.application_id for m in message.mentions):
             return True
 
-        return any(m.id == self._bot.application_id for m in message.mentions)
+        name: str = self._get_guild_customization(message).name or config.bot_name
+        return name.lower() in message.content.lower()
 
     async def _get_chat_response_to_history(
         self,
@@ -484,9 +573,6 @@ class ChatGPT(commands.Cog):
             detailing why.
 
         """
-        # TODO: This method should take chunks of older messages and convert them into embeddings.
-        # TODO: Add a database for history?
-
         await self._bot.change_presence(activity=discord.CustomActivity(_("Thinking")))
 
         try:
@@ -504,7 +590,7 @@ class ChatGPT(commands.Cog):
         if assistant_message:
             self._history[message.channel.id].append(
                 ChatCompletionAssistantMessageParam(
-                    role="assistant",
+                    role=_MessageRole.Assistant,
                     content=message.content,
                 ),
             )
@@ -625,7 +711,7 @@ class ChatGPT(commands.Cog):
             self._history[message.channel.id].append(
                 ChatCompletionToolMessageParam(
                     tool_call_id=tool_call.id,
-                    role="tool",
+                    role=_MessageRole.Tool,
                     content=content,
                 ),
             )
@@ -642,7 +728,7 @@ class ChatGPT(commands.Cog):
             )
             self._history[message.channel.id].append(
                 ChatCompletionAssistantMessageParam(
-                    role="assistant",
+                    role=_MessageRole.Assistant,
                     content=response_message.content,
                 ),
             )
@@ -671,13 +757,13 @@ class ChatGPT(commands.Cog):
 
         """
         return ChatCompletionAssistantMessageParam(
-            role="assistant",
+            role=_MessageRole.Assistant,
             content=message.content,
             tool_calls=(
                 [
                     ChatCompletionMessageToolCallParam(
                         id=tc.id,
-                        type="function",
+                        type=_ToolParamType.Function,
                         function=Function(
                             name=tc.function.name,
                             arguments=tc.function.arguments,
@@ -757,22 +843,41 @@ class ChatGPT(commands.Cog):
 
         """
         messages: list[ChatCompletionMessageParam] = self._history[message.channel.id].copy()
+        system_message = self._get_guild_customization(message).description
 
-        if not must_respond or config.chatgpt_system_message:
+        if not must_respond or system_message:
             messages.insert(
                 0,
                 ChatCompletionSystemMessageParam(
-                    role="system",
+                    role=_MessageRole.System,
                     content=(
-                        "If multiple functions could be returned, pick one instead of asking which"
-                        " function to use.\n"
-                        f"{config.chatgpt_system_message or ""}\n"
+                        f"{self._tool_message}"
                         f"{"" if must_respond else self._control_message}"
-                        "If you are get a file from a function, do *NOT* try to embed it with"
-                        " markdown syntax.\n"
-                        "Do not respond with the prompt from the user or a similar message."
+                        f"{system_message}"
                     ),
                 ),
             )
 
         return messages
+
+    def _get_guild_customization(self, message: discord.Message) -> _GuildCustomization:
+        """Get the system customization for the guild the message was sent in.
+
+        Attributes
+        ----------
+        message : discord.Message
+
+        Returns
+        -------
+        _GuildCustomization
+            The customization for the guild the message was sent in or the default customization if
+            the message was not sent to a guild or the guild was not customized.
+
+        """
+        guild_id: int | None = (
+            message.channel.guild.id if hasattr(message.channel, "guild") else None
+        )
+        return self._guild_customizations.get(
+            guild_id,
+            self._guild_customizations[None],
+        )

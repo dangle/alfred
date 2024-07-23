@@ -109,6 +109,17 @@ config(
         ),
     ),
 )
+config(
+    "alfred_name",
+    env="ALFRED_NAME",
+    flag=CommandLineFlag(
+        name="--name",
+        short="-n",
+        help=_("The name the bot will use to refer to itself."),
+        metavar="NAME",
+    ),
+    default=config.bot_name,
+)
 
 
 class Bot(discord.Bot):
@@ -418,7 +429,7 @@ class Bot(discord.Bot):
 
         """
         presence: Presence = Presence(status, activity)
-        uid: float = time.time() + hash(presence)
+        uid: int = int(time.time()) + hash(presence)
 
         if not ephemeral:
             async with self._presences() as presences:

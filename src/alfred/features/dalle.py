@@ -104,7 +104,7 @@ class DallE(commands.Cog):
     def __init__(self, bot: bot.Bot) -> None:
         self._bot = bot
 
-    @draw.command(name=_Model.DALL_E_3.value, guild_ids=config.guild_ids)
+    @draw.command(name=_Model.DALL_E_3, guild_ids=config.guild_ids)
     @discord.option(
         _("prompt"),
         str,
@@ -157,10 +157,10 @@ class DallE(commands.Cog):
                 prompt=prompt,
                 size=size,
                 quality=quality,
-                model=_Model.DALL_E_3.value,
+                model=_Model.DALL_E_3,
             )
 
-    @draw.command(name=_Model.DALL_E_2.value, guild_ids=config.guild_ids)
+    @draw.command(name=_Model.DALL_E_2, guild_ids=config.guild_ids)
     @discord.option(
         _("prompt"),
         str,
@@ -213,7 +213,7 @@ class DallE(commands.Cog):
                 prompt=prompt,
                 size=size,
                 quality=quality,
-                model=_Model.DALL_E_2.value,
+                model=_Model.DALL_E_2,
             )
 
     async def _generate_image(
@@ -221,9 +221,9 @@ class DallE(commands.Cog):
         ctx: discord.ApplicationContext,
         *,
         prompt: str,
-        size: str = _DallE3Sizes.SQUARE.value,
-        quality: str = _ImageQuality.STANDARD.value,
-        model: str = _Model.DALL_E_3.value,
+        size: str = _DallE3Sizes.SQUARE,
+        quality: str = _ImageQuality.STANDARD,
+        model: str = _Model.DALL_E_3,
     ) -> None:
         """Generate an image using DALL-E.
 

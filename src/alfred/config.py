@@ -131,7 +131,7 @@ class CommandLineFlag:
 
     #: The command flag to add to `argparse`.
     #: This can be a required flag, an optional value ("--flag"), or a short optional flag ("-f").
-    name: str  #: no-index
+    name: str
 
     #: An alias of the command.
     #: This is often the short optional flag ("-f").
@@ -380,15 +380,19 @@ class _Config:
 
     @property
     def bot_name(self) -> str:
-        """Return the translated bot name.
+        """Return the bot name.
 
         Returns
         -------
         str
-            The translated bot name.
+            The bot name.
 
         """
-        return _("Alfred")
+        return (
+            self.alfred_name
+            if self.alfred_name and self.alfred_name is not NOT_GIVEN
+            else _("Alfred")
+        )
 
     @property
     def version(self) -> str:
@@ -493,7 +497,7 @@ class _Config:
         parser = argparse.ArgumentParser(*args, **kwargs)
 
         flag_config_values: tuple[_ConfigValue, ...] = tuple(
-            typing.cast(_ConfigValue, cv) for cv in self.config.values() if cv.flag
+            typing.cast(_ConfigValue, cv) for cv in self.config.values() if cv.flag is not NOT_GIVEN
         )
 
         for cv in flag_config_values:
