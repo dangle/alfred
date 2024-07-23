@@ -16,4 +16,4 @@ __all__ = (
 
 __project_package__: str = __name__
 
-__version__: str = "v2024.07.1"
+__version__: str = "v2024.07.2"
