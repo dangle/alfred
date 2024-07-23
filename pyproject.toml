@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "structlog>=24.4.0",
     "aiohttp[speedups]>=3.9.5",
+    "pyyaml>=6.0.1",
 ]
 
 [project.entry-points."alfred.features"]
@@ -77,6 +78,7 @@ dev = [
     "sphinx-rtd-theme>=2.0.0",
     "isort>=5.13.2",
     "black>=24.4.2",
+    "types-PyYAML>=6.0.12.20240311",
 ]
 
 [tool.pdm.scripts]
