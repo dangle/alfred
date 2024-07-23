@@ -13,8 +13,6 @@ from discord.interactions import Interaction, WebhookMessage
 from discord.types.interactions import Interaction as InteractionPayload
 from discord.types.interactions import InteractionContextType
 
-from alfred.config import config
-
 if typing.TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from typing import Any, Literal
@@ -134,7 +132,7 @@ class MessageApplicationContext(discord.ApplicationContext):
             context=cls._get_interaction_context_type(message),
             type=_MESSAGE_COMPONENT,
             version=0,
-            token=config.discord_token,
+            token="",
             entitlements=await cls._get_entitlements(message),
             authorizing_integration_owners=cls._get_authorizing_integration_owners(message),
             channel_id=message.channel.id,

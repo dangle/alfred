@@ -1,24 +1,16 @@
 alfred.features package
 =======================
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   alfred.features.chat
+
 Submodules
 ----------
-
-alfred.features.admin module
-----------------------------
-
-.. automodule:: alfred.features.admin
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.features.chatgpt module
-------------------------------
-
-.. automodule:: alfred.features.chatgpt
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 alfred.features.dalle module
 ----------------------------

@@ -1,53 +1,32 @@
-"""The entry point of the bot.
+"""Defines the CLI interface of the bot, configures the bot, and then runs it."""
 
-Defines the CLI interface of the bot, configures the bot, and then runs it.
+from __future__ import annotations
 
-"""
-
-import argparse
 import os
 import sys
 
 import structlog
+import uvloop
 
-from alfred import __project_package__, bot, logging, translation
+from alfred import config, logging, translation
 from alfred import exceptions as exc
-from alfred.config import CommandLineFlag, config
-from alfred.features import features
-from alfred.translation import gettext as _
+from alfred.manor import Manor
 
-__all__ = ("run",)
-
-config(
-    "version",
-    flag=CommandLineFlag(
-        name="--version",
-        short="-v",
-        action="version",
-        version=f"{config.bot_name} {config.version}",
-    ),
-)
+__all__ = ("main",)
 
 
-def run() -> None:
-    """Configure and start the program."""
+def main() -> None:
+    """Configure and run the program."""
     translation.bind()
     logging.configure_logging()
 
     log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
     try:
-        with logging.delay_logging():
-            features.discover_features()
-            config.load(
-                prog=__project_package__,
-                description=_(
-                    "{project_name} is an extensible Discord bot that can use ChatGPT to respond"
-                    " conversationally and run commands on behalf of the server users.",
-                ).format(project_name=config.bot_name),
-                formatter_class=argparse.RawTextHelpFormatter,
-            )
-        bot.run()
+        config.init()
+        uvloop.run(Manor().start())
+    except KeyboardInterrupt:
+        sys.exit(os.EX_OK)
     except exc.BotError as e:
         log.error(str(e))
         sys.exit(e.exit_code)
@@ -57,4 +36,4 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run()
+    main()

@@ -2,18 +2,20 @@
 
 Listeners
 ---------
+add_tools : on_ready
+    Parses all bot slash commands and saves them in a format that can be used by the chat service.
 listen : on_message
     Listens to private messages and messages in channels the bot is in and optionally returns a
     response from the chat service.
+set_server_profiles : on_ready
+    Sets the bot nick in guilds where it has been customized when the bot first loads.
 wait_for_corrections : on_waiting_for_corrections
     Sets the bot presence to "Waiting for corrections" for one minute after the bot is explicitly
     addressed by name.
-set_server_profiles : on_ready
-    Sets the bot nick in guilds where it has been customized when the bot first loads.
-add_tools : on_ready
-    Parses all bot slash commands and saves them in a format that can be used by the chat service.
 
 """
+
+from __future__ import annotations
 
 import asyncio
 import builtins
@@ -21,14 +23,13 @@ import dataclasses
 import enum
 import json
 import types
+import typing
 from collections import defaultdict
-from typing import Any, Literal, cast, get_type_hints
+from typing import cast, get_type_hints
 
 import discord
 import openai
 import structlog
-import yaml
-from discord.ext import commands
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -44,36 +45,23 @@ from openai.types.chat import (
 from openai.types.chat.chat_completion_message_tool_call_param import Function
 from openai.types.shared_params import FunctionDefinition
 
-from alfred import bot
-from alfred.config import CommandLineFlag, EnvironmentVariable, config
-from alfred.context import MessageApplicationContext
-from alfred.features import _ai
+from alfred import db, feature, fields
+from alfred.features.chat.context import MessageApplicationContext
 from alfred.translation import gettext as _
 
-__all__ = (
-    "__intents__",
-    "setup",
-)
+if typing.TYPE_CHECKING:
+    from typing import Any, Literal
 
-__intents__ = discord.Intents(
-    presences=True,
-    members=True,
-    messages=True,
-    message_content=True,
-)
+    from discord import ApplicationCommand
 
-# Set the name of the feature.
-__feature__: str = "ChatGPT"
+__all__ = ("ChatGPT",)
 
-log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
+_FEATURE = "ChatGPT"
 
+_log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=_FEATURE)
 
-_DEFAULT_SYSTEM_MESSAGE: str = (
-    "You are a helpful and formal butler listening in to a chat server.\n"
-    f"You will respond to the name {config.bot_name}.\n"
-    "You will respond using honorifics.\n"
-    "Do not ask follow-up questions.\n"
-)
+_WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
+_THINKING = discord.CustomActivity(_("Thinking"))
 
 
 class _ChatGPTModels(enum.StrEnum):
@@ -83,181 +71,6 @@ class _ChatGPTModels(enum.StrEnum):
     GPT_4_TURBO = "gpt-4-turbo"
     GPT_4 = "gpt-4"
     GPT_3_5_TURBO = "gpt-3.5-turbo"
-
-
-@dataclasses.dataclass
-class _GuildCustomization:
-    """Attributes that can be customized per guild."""
-
-    #: The guild ID to which this customization applies.
-    id: int
-
-    #: The system message to send with messages in this guild.
-    description: str
-
-    #: The name that the bot *must* respond to in this guild.
-    #: If not specified it will default to the default bot name.
-    name: str | None = None
-
-    #: The nickname the bot will use in this guild.
-    #: If not specified it will default to the customization name.
-    nick: str | None = None
-
-
-def guild_customizations(value: str) -> dict[int, _GuildCustomization]:
-    """Get guild customizations from a given `value`.
-
-    Parameters
-    ----------
-    value : str
-        The value from an environment variable.
-
-    Returns
-    -------
-    dict[int, _GuildCustomization]
-        A mapping of guild IDs to `_GuildCustomization` objects.
-
-    Raises
-    ------
-    TypeError
-        Raised if the value cannot be parsed into the expected format.
-
-    """
-    data = yaml.safe_load(value.strip())
-
-    if not isinstance(data, dict):
-        raise TypeError("Expected a JSON or YAML mapping of guild IDs to customizations")
-
-    output: dict[int, _GuildCustomization] = {}
-
-    for k, v in data.items():
-        if not k or not v or not isinstance(v, dict):
-            raise TypeError("Expected values for guild IDs and customizations")
-
-        id_ = int(k)
-        output[id_] = _GuildCustomization(
-            id=id_,
-            name=v.get("name"),
-            nick=v.get("nick"),
-            description=v.get("description", ""),
-        )
-
-    return output
-
-
-def temperature(value: str) -> float:
-    """Cast a temperature value to a float and verify that it is between 0 and 1.
-
-    Parameters
-    ----------
-    value : str
-        The temperature value.
-
-    Returns
-    -------
-    float
-        The converted floating point number.
-
-    Raises
-    ------
-    ValueError
-        Raised when `value` cannot be cast to a float or if `value` is not between 0 and 1.
-
-    """
-    temp: float = float(value)
-
-    if temp < 0 or temp > 1:
-        raise ValueError("Temperature must be between 0 and 1.")
-
-    return temp
-
-
-_ai.configure_ai()
-config(
-    "chatgpt_model",
-    env=EnvironmentVariable(
-        "CHATGPT_MODEL",
-        type=_ChatGPTModels,
-    ),
-    flag=CommandLineFlag(
-        "--chatgpt-model",
-        choices=_ChatGPTModels.__members__.values(),
-        help=_(
-            "The ChatGPT model to use to power {project_name}'s conversational abilities.\n"
-            'If no model is given, the model will default to "{default}".',
-        ).format(
-            project_name=config.bot_name,
-            default=_ChatGPTModels.GPT_4O,
-        ),
-    ),
-    default=_ChatGPTModels.GPT_4O,
-)
-config(
-    "chatgpt_temperature",
-    env=EnvironmentVariable(
-        "CHATGPT_TEMPERATURE",
-        type=temperature,
-    ),
-    flag=CommandLineFlag(
-        "--chatgpt-temperature",
-        type=temperature,
-        help=_(
-            "The ChatGPT temperature to use for {project_name}'s conversational abilities.\n"
-            "Valid options are numbers between 0 and 1.\n"
-            "Higher numbers allow {project_name} to be more creative but also more likely to"
-            " hallucinate.\n"
-            "If no temperature is given, the temperature will default to {default}.",
-        ).format(
-            project_name=config.bot_name,
-            default=0.2,
-        ),
-    ),
-    default=0.2,
-)
-config(
-    "chatgpt_system_message",
-    env="CHATGPT_SYSTEM_MESSAGE",
-    flag=CommandLineFlag(
-        "--chatgpt-system-message",
-        short="-m",
-        help=_(
-            "A system message determines what role that {project_name} should play and how it"
-            " should behave while communicating with users by default.",
-        ).format(project_name=config.bot_name),
-    ),
-    default=_DEFAULT_SYSTEM_MESSAGE,
-)
-config(
-    "chatgpt_guild_customizations",
-    env=EnvironmentVariable(
-        name="CHATGPT_GUILD_CUSTOMIZATIONS",
-        type=guild_customizations,
-    ),
-    default={},
-)
-
-
-def setup(bot: bot.Bot) -> None:
-    """Add this feature `commands.Cog` to the `bot.Bot`.
-
-    If the `openai.AsyncOpenAI` client has not been configured as the `ai` configuration attribute
-    this will not be added to the `bot.Bot`.
-
-    Parameters
-    ----------
-    bot : bot.Bot
-        The `bot.Bot` to which to add the feature.
-
-    """
-    if config.ai:
-        bot.add_cog(ChatGPT(bot))
-        return
-
-    log.info(f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}')
-
-
-_WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
-_THINKING = discord.CustomActivity(_("Thinking"))
 
 
 class _ResponseType(enum.Enum):
@@ -291,24 +104,56 @@ class _Tool:
     tool: ChatCompletionToolParam
 
 
-class ChatGPT(commands.Cog):
-    """Manages chat interactions and commands in the bot.
+class ChatGPT(feature.Feature):
+    """Manages chat interactions and commands in the bot."""
 
-    Parameters
-    ----------
-    bot : discord.bot.Bot
-        The `bot.Bot` that will be used for running any interpreted commands.
+    #: An asynchronous OpenAI client.
+    ai = fields.AIField()
 
-    """
+    #: The bot to which this feature was attached.
+    bot = fields.BotField()
 
-    # A custom response that the bot may return if it does not believe that it is being addressed.
+    #: The staff member this bot represents.
+    staff = fields.StaffField()
+
+    #: The chat service model to use when responding to users.
+    #: Defaults to GPT-4o.
+    model = fields.ConfigField[str](
+        namespace="alfred.openai",
+        env="CHATGPT_MODEL",
+        required=False,
+        default=_ChatGPTModels.GPT_4O,
+    )
+
+    #: A value between 0 and 1 describing how creative the chat service should be when answering.
+    #: Higher values are more creative.
+    temperature = fields.BoundedConfigField[float][0:1](  # type: ignore[operator]
+        parser=float,
+        required=False,
+        default=0.2,
+    )
+
+    #: The intents required by this feature.
+    #: This requires the priviledged intents in order to get access to server chat.
+    intents: discord.Intents = discord.Intents(
+        guilds=True,
+        presences=True,
+        members=True,
+        messages=True,
+        message_content=True,
+    )
+
+    #: A custom response that the bot may return if it does not believe that it is being addressed.
     _NO_RESPONSE: str = "__NO_RESPONSE__"
+
+    #: The number of times to retry bad responses from the chat service.
     _RETRY_BAD_RESPONSES: int = 3
+
+    #: How long to listen for corrections from the user without requiring an explicit mention, in
+    #: seconds.
     _TIME_TO_WAIT_FOR_CORRECTIONS_S: int = 60
 
-    def __init__(self, bot: bot.Bot) -> None:
-        self._bot = bot
-
+    def __init__(self) -> None:
         self._history: dict[int, list[ChatCompletionMessageParam]] = defaultdict(list)
         self._history_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
@@ -323,45 +168,26 @@ class ChatGPT(commands.Cog):
         )
         self._tools: dict[str, _Tool] = {}
 
-        self._guild_customizations: dict[int | None, _GuildCustomization] = {
-            None: _GuildCustomization(
-                id=0,
-                name=config.bot_name,
-                description=(
-                    (config.chatgpt_system_message or "").strip() or _DEFAULT_SYSTEM_MESSAGE
-                ),
-            ),
-        }
-
-        if isinstance(config.chatgpt_guild_customizations, dict):
-            for id_, c in config.chatgpt_guild_customizations.items():
-                self._guild_customizations[id_] = c
-
-        log.info("Using guild customizations", customizations=self._guild_customizations)
-
-    @commands.Cog.listener("on_ready", once=True)
+    @feature.listener("on_ready", once=True)
     async def set_server_profiles(self) -> None:
         """Set the nickname for the bot in each guild on ready."""
-        for guild in self._bot.guilds:
-            customization: _GuildCustomization = self._get_guild_customization(guild.id)
-            nick = customization.nick or customization.name
+        for guild in self.bot.guilds:
+            identity = await self.staff.get_identity(guild.id)
+            nick: str = str(identity)
 
-            if nick and self._bot.application_id is not None:
-                member: discord.Member | None = guild.get_member(self._bot.application_id)
+            if nick and self.bot.application_id is not None:
+                member: discord.Member | None = guild.get_member(self.bot.application_id)
 
                 if member:
                     await member.edit(nick=nick)
 
-    @commands.Cog.listener("on_ready", once=True)
+    @feature.listener("on_ready", once=True)
     async def add_tools(self) -> None:
         """Create a mapping of bot commands to chat service tools."""
-        for command in self._bot.application_commands:
+        for command in self.bot.application_commands:
             await self.add_tool(command)
 
-        await log.ainfo(
-            "Tools for the chat service.",
-            tools=self._tools if config.debugging else list(self._tools),
-        )
+        await _log.ainfo("Tools for the chat service.", tools=list(self._tools))
 
     async def add_tool(
         self,
@@ -389,18 +215,18 @@ class ChatGPT(commands.Cog):
                 tool=await self._convert_command_to_tool(command),
             )
         except ValueError as e:
-            await log.adebug("Unable to parse type in bot command.", exc_info=e)
+            await _log.adebug("Unable to parse type in bot command.", exc_info=e)
 
     async def _convert_command_to_tool(
         self,
-        command: commands.core.ApplicationCommand,
+        command: ApplicationCommand,
     ) -> ChatCompletionToolParam:
         """Convert `command` into a tool that the chat service can call.
 
         Parameters
         ----------
-        command : commands.core.ApplicationCommand
-            An `commands.core.ApplicationCommand` already registered to the bot.
+        command : ApplicationCommand
+            An `ApplicationCommand` already registered to the bot.
             e.g. a slash command.
 
         Returns
@@ -426,7 +252,7 @@ class ChatGPT(commands.Cog):
                 or not parameter.name
                 or parameter.name == "self"
             ):
-                await log.adebug(
+                await _log.adebug(
                     "Skipping parameter.",
                     command=command.name,
                     parameter=parameter,
@@ -493,7 +319,7 @@ class ChatGPT(commands.Cog):
             f"Unable to convert {input_type!r} to a valid format for the chat service.",
         )
 
-    @commands.Cog.listener("on_message")
+    @feature.listener("on_message")
     async def listen(self, message: discord.Message) -> None:
         """Listen and respond to Discord chat messages.
 
@@ -509,11 +335,11 @@ class ChatGPT(commands.Cog):
             The message received in a channel that the bot watches.
 
         """
-        if message.author.id == self._bot.application_id:
-            await log.adebug("Bot is the author of the message.", message=message)
+        if message.author.id == self.bot.application_id:
+            await _log.adebug("Bot is the author of the message.", message=message)
             return
 
-        author: str = self._bot.get_user_name(message.author)
+        author: str = self.bot.get_user_name(message.author)
 
         async with self._history_locks[message.channel.id]:
             self._history[message.channel.id].append(
@@ -525,15 +351,15 @@ class ChatGPT(commands.Cog):
             )
 
             if message.author.bot:
-                await log.adebug("Another bot is the author of the message.", message=message)
+                await _log.adebug("Another bot is the author of the message.", message=message)
                 return
 
-            must_respond: bool = self._must_respond(message)
+            must_respond: bool = await self._must_respond(message)
 
-            if not must_respond and _WAITING_FOR_CORRECTIONS not in self._bot.activities:
+            if not must_respond and _WAITING_FOR_CORRECTIONS not in self.bot.activities:
                 return
 
-            async with self._bot.presence(activity=_THINKING, ephemeral=True):
+            async with self.bot.presence(activity=_THINKING, ephemeral=True):
                 response: str | _ResponseType = await self._get_chat_response_to_history(
                     message,
                     must_respond=must_respond,
@@ -541,7 +367,7 @@ class ChatGPT(commands.Cog):
 
                 match response:
                     case _ResponseType.NoResponse | _ResponseType.BadResponse:
-                        await log.ainfo(
+                        await _log.ainfo(
                             f"Skipping response to message from {author}.",
                             response=response,
                         )
@@ -552,15 +378,15 @@ class ChatGPT(commands.Cog):
                         await message.reply(response)
 
             if must_respond:
-                self._bot.dispatch("waiting_for_corrections")
+                self.bot.dispatch("waiting_for_corrections")
 
-    @commands.Cog.listener("on_waiting_for_corrections")
+    @feature.listener("on_waiting_for_corrections")
     async def wait_for_corrections(self) -> None:
         """Listen for the `on_waiting_for_corrections` event and set the bot activity."""
-        async with self._bot.presence(activity=_WAITING_FOR_CORRECTIONS):
+        async with self.bot.presence(activity=_WAITING_FOR_CORRECTIONS):
             await asyncio.sleep(self._TIME_TO_WAIT_FOR_CORRECTIONS_S)
 
-    def _must_respond(self, message: discord.Message) -> bool:
+    async def _must_respond(self, message: discord.Message) -> bool:
         """Determine if the bot *must* respond to the given `message`.
 
         The bot *must* respond to messages that:
@@ -583,10 +409,11 @@ class ChatGPT(commands.Cog):
         if isinstance(message, discord.DMChannel):
             return True
 
-        if any(m.id == self._bot.application_id for m in message.mentions):
+        if any(m.id == self.bot.application_id for m in message.mentions):
             return True
 
-        name: str = self._get_guild_customization_from_message(message).name or config.bot_name
+        name: str = str(await self.staff.get_identity(message.channel.id))
+
         return name.lower() in message.content.lower()
 
     async def _get_chat_response_to_history(
@@ -617,7 +444,7 @@ class ChatGPT(commands.Cog):
             detailing why.
 
         """
-        await self._bot.change_presence(activity=discord.CustomActivity(_("Thinking")))
+        await self.bot.change_presence(activity=discord.CustomActivity(_("Thinking")))
 
         try:
             assistant_message = await self._get_assistant_message(
@@ -625,7 +452,7 @@ class ChatGPT(commands.Cog):
                 must_respond=must_respond,
             )
         except openai.OpenAIError as e:
-            await log.aerror("An error occurred while querying the chat service.", exc_info=e)
+            await _log.aerror("An error occurred while querying the chat service.", exc_info=e)
             return _ResponseType.BadResponse
 
         if assistant_message == self._NO_RESPONSE:
@@ -640,7 +467,7 @@ class ChatGPT(commands.Cog):
             )
             return assistant_message
 
-        await log.aerror("All responses from the chat service started with the prompt unmodified.")
+        await _log.aerror("All responses from the chat service started with the prompt unmodified.")
         return _ResponseType.BadResponse
 
     async def _get_assistant_message(
@@ -674,7 +501,7 @@ class ChatGPT(commands.Cog):
 
         """
         tools = [tool.tool for tool in self._tools.values()] or openai.NOT_GIVEN
-        chat_context = self._get_chat_context(message, must_respond=must_respond)
+        chat_context = await self._get_chat_context(message, must_respond=must_respond)
 
         for n in range(1, self._RETRY_BAD_RESPONSES + 1):
             response: ChatCompletion = await self._call_chat(
@@ -683,7 +510,7 @@ class ChatGPT(commands.Cog):
                 messages=chat_context,
                 n=n,
             )
-            await log.adebug(
+            await _log.adebug(
                 "Got response from chat service.",
                 response=response,
                 message=message,
@@ -734,17 +561,17 @@ class ChatGPT(commands.Cog):
         command = self._tools[function.name].command
 
         async with await MessageApplicationContext.new(
-            self._bot,
+            self.bot,
             message,
             delayed_send=True,
         ) as ctx:
-            await log.ainfo("Calling tool.", tool=function.name, tool_call_id=tool_call.id)
+            await _log.ainfo("Calling tool.", tool=function.name, tool_call_id=tool_call.id)
 
             try:
                 await command(ctx=ctx, **json.loads(function.arguments))
                 content = json.dumps([r.serializable() for r in ctx.responses])
             except Exception as e:
-                await log.aerror(
+                await _log.aerror(
                     "An error occurred while calling a tool.",
                     exc_info=e,
                     tool_call_id=tool_call.id,
@@ -764,7 +591,7 @@ class ChatGPT(commands.Cog):
                 (
                     await self._call_chat(
                         message,
-                        messages=self._get_chat_context(message, must_respond=False),
+                        messages=await self._get_chat_context(message, must_respond=False),
                     )
                 )
                 .choices[0]
@@ -837,24 +664,24 @@ class ChatGPT(commands.Cog):
 
         """
         if "model" not in kwargs:
-            kwargs["model"] = config.chatgpt_model
+            kwargs["model"] = self.model
 
         if "temperature" not in kwargs:
-            kwargs["temperature"] = config.chatgpt_temperature
+            kwargs["temperature"] = self.temperature
 
         if "user" not in kwargs:
-            kwargs["user"] = self._bot.get_user_name(message.author)
+            kwargs["user"] = self.bot.get_user_name(message.author)
 
-        ai = cast(openai.AsyncOpenAI, config.ai)
+        ai = cast(openai.AsyncOpenAI, self.ai)
         response: ChatCompletion = await ai.chat.completions.create(**kwargs)
-        await log.ainfo(
+        await _log.ainfo(
             "Chat service usage.",
             usage=response.usage,
             history_length=len(self._history),
         )
         return response
 
-    def _get_chat_context(
+    async def _get_chat_context(
         self,
         message: discord.Message,
         *,
@@ -887,7 +714,7 @@ class ChatGPT(commands.Cog):
 
         """
         messages: list[ChatCompletionMessageParam] = self._history[message.channel.id].copy()
-        system_message = self._get_guild_customization_from_message(message).description
+        system_message = (await self._get_identity(message)).description
 
         if not must_respond or system_message:
             messages.insert(
@@ -904,30 +731,7 @@ class ChatGPT(commands.Cog):
 
         return messages
 
-    def _get_guild_customization(self, guild_id: int | None) -> _GuildCustomization:
-        """Get the guild customization for the given ID.
-
-        Attributes
-        ----------
-        guild_id : int | None
-            The guild ID for which to get the customization.
-            If `guild_id` is None, return the global customization
-
-        Returns
-        -------
-        _GuildCustomization
-            The customization for the given guild ID.
-
-        """
-        return self._guild_customizations.get(
-            guild_id,
-            self._guild_customizations[None],
-        )
-
-    def _get_guild_customization_from_message(
-        self,
-        message: discord.Message,
-    ) -> _GuildCustomization:
+    async def _get_identity(self, message: discord.Message) -> db.Identity:
         """Get the system customization for the guild the message was sent in.
 
         Attributes
@@ -944,4 +748,4 @@ class ChatGPT(commands.Cog):
         guild_id: int | None = (
             message.channel.guild.id if hasattr(message.channel, "guild") else None
         )
-        return self._get_guild_customization(guild_id)
+        return await self.staff.get_identity(guild_id)
