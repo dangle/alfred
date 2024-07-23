@@ -8,6 +8,10 @@ listen : on_message
 wait_for_corrections : on_waiting_for_corrections
     Sets the bot presence to "Waiting for corrections" for one minute after the bot is explicitly
     addressed by name.
+set_server_profiles : on_ready
+    Sets the bot nick in guilds where it has been customized when the bot first loads.
+add_tools : on_ready
+    Parses all bot slash commands and saves them in a format that can be used by the chat service.
 
 """
 
@@ -101,6 +105,24 @@ class _GuildCustomization:
 
 
 def guild_customizations(value: str) -> dict[int, _GuildCustomization]:
+    """Get guild customizations from a given `value`.
+
+    Parameters
+    ----------
+    value : str
+        The value from an environment variable.
+
+    Returns
+    -------
+    dict[int, _GuildCustomization]
+        A mapping of guild IDs to `_GuildCustomization` objects.
+
+    Raises
+    ------
+    TypeError
+        Raised if the value cannot be parsed into the expected format.
+
+    """
     data = yaml.safe_load(value.strip())
 
     if not isinstance(data, dict):
