@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-22 18:52+0000\n"
+"POT-Creation-Date: 2024-07-23 00:19+0000\n"
 "PO-Revision-Date: 2024-07-12 23:26+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -30,31 +30,31 @@ msgstr ""
 "If not supplied, {project_name} will also look for the OPENAI_API_KEY "
 "environment variable."
 
-#: src/alfred/features/admin.py:121
+#: src/alfred/features/admin.py:119
 msgid "There are no enabled features."
 msgstr "There are no enabled features."
 
-#: src/alfred/features/admin.py:126
+#: src/alfred/features/admin.py:124
 #, python-brace-format
 msgid "The following features are enabled: {enabled_features}"
 msgstr "The following features are enabled: {enabled_features}"
 
-#: src/alfred/features/admin.py:143
+#: src/alfred/features/admin.py:142
 msgid "There are no disabled features."
 msgstr "There are no disabled features."
 
-#: src/alfred/features/admin.py:148
+#: src/alfred/features/admin.py:147
 #, python-brace-format
 msgid "The following features are disabled: {disabled_features}"
 msgstr "The following features are disabled: {disabled_features}"
 
-#: src/alfred/features/admin.py:155 src/alfred/features/admin.py:182
-#: src/alfred/features/admin.py:212
+#: src/alfred/features/admin.py:155 src/alfred/features/admin.py:183
+#: src/alfred/features/admin.py:214
 msgid "feature"
 msgstr "feature"
 
-#: src/alfred/features/admin.py:168 src/alfred/features/admin.py:195
-#: src/alfred/features/admin.py:233
+#: src/alfred/features/admin.py:168 src/alfred/features/admin.py:196
+#: src/alfred/features/admin.py:235
 #, python-brace-format
 msgid "Feature not found: {feature}"
 msgstr "Feature not found: {feature}"
@@ -69,31 +69,31 @@ msgstr "Failed to enable feature: {feature}"
 msgid "Feature enabled: {feature}"
 msgstr "Feature enabled: {feature}"
 
-#: src/alfred/features/admin.py:199
+#: src/alfred/features/admin.py:200
 #, python-brace-format
 msgid "Feature not enabled: {feature}"
 msgstr "Feature not enabled: {feature}"
 
-#: src/alfred/features/admin.py:205
+#: src/alfred/features/admin.py:206
 #, python-brace-format
 msgid "Failed to disable feature: {feature}"
 msgstr "Failed to disable feature: {feature}"
 
-#: src/alfred/features/admin.py:208
+#: src/alfred/features/admin.py:209
 #, python-brace-format
 msgid "Disabling feature: {feature}"
 msgstr "Disabling feature: {feature}"
 
-#: src/alfred/features/admin.py:229
+#: src/alfred/features/admin.py:231
 msgid "Reloaded bot features"
 msgstr "Reloaded bot features"
 
-#: src/alfred/features/admin.py:239
+#: src/alfred/features/admin.py:241
 #, python-brace-format
 msgid "Failed to reload feature: {feature}"
 msgstr "Failed to reload feature: {feature}"
 
-#: src/alfred/features/admin.py:242
+#: src/alfred/features/admin.py:244
 #, python-brace-format
 msgid "Feature reloaded: {feature}"
 msgstr "Feature reloaded: {feature}"
@@ -176,7 +176,23 @@ msgstr ""
 "If no guild IDs are given, commands will be registered as global and will "
 "take up to an hour to become usable."
 
-#: src/alfred/bot.py:74
+#: src/alfred/bot.py:75
+#, fuzzy, python-brace-format
+msgid ""
+"The guild (server) IDs of servers on which to enable {project_name} admin "
+"commands.\n"
+"If not given, this will default to the discord guild IDs value.\n"
+"If no guild IDs are given, commands will be registered as global and will "
+"take up to an hour to become usable."
+msgstr ""
+"The guild (server) IDs of servers on which to enable {project_name} "
+"commands.\n"
+"If not supplied, {project_name} will look for the DISCORD_GUILD_IDS "
+"environment variable.\n"
+"If no guild IDs are given, commands will be registered as global and will "
+"take up to an hour to become usable."
+
+#: src/alfred/bot.py:95
 #, fuzzy, python-brace-format
 msgid ""
 "{project_name} features to enable.\n"
@@ -187,7 +203,7 @@ msgstr ""
 "environment variable.\n"
 "If no features are given, all features will be enabled by default."
 
-#: src/alfred/bot.py:86
+#: src/alfred/bot.py:107
 #, python-brace-format
 msgid "Disable the Discord commands for administrating {project_name}."
 msgstr "Disable the Discord commands for administrating {project_name}."

@@ -46,7 +46,7 @@ config(
     "guild_ids",
     env=EnvironmentVariable(  # A comma-separated list of server IDs for commands.
         name="DISCORD_GUILD_IDS",
-        type=lambda x: set(csv(x)),
+        type=lambda x: csv(x),
     ),
     flag=CommandLineFlag(
         name="--guild-ids",
@@ -59,6 +59,27 @@ config(
         ).format(project_name=config.bot_name),
     ),
     required=False,
+    default=[],
+)
+config(
+    "admin_guild_ids",
+    env=EnvironmentVariable(  # A comma-separated list of server IDs for admin commands.
+        name="DISCORD_ADMIN_GUILD_IDS",
+        type=lambda x: csv(x),
+    ),
+    flag=CommandLineFlag(
+        name="--admin-guild-ids",
+        nargs="*",
+        short="-a",
+        help=_(
+            "The guild (server) IDs of servers on which to enable {project_name} admin commands.\n"
+            "If not given, this will default to the discord guild IDs value.\n"
+            "If no guild IDs are given, commands will be registered as global and will take up to"
+            " an hour to become usable.",
+        ).format(project_name=config.bot_name),
+    ),
+    required=False,
+    default=[],
 )
 config(
     "bot_enabled_features",
