@@ -112,7 +112,7 @@ def guild_customizations(value: str) -> dict[int, _GuildCustomization]:
         output[id_] = _GuildCustomization(
             id=id_,
             name=v.get("name"),
-            description=v.get("system_message", ""),
+            description=v.get("description", ""),
         )
 
     return output
