@@ -88,12 +88,16 @@ class _GuildCustomization:
     #: The guild ID to which this customization applies.
     id: int
 
-    #: The name that the bot *must* respond to in this guild.
-    #: If not specified it will default to the default bot name.
-    name: str | None
-
     #: The system message to send with messages in this guild.
     description: str
+
+    #: The name that the bot *must* respond to in this guild.
+    #: If not specified it will default to the default bot name.
+    name: str | None = None
+
+    #: The nickname the bot will use in this guild.
+    #: If not specified it will default to the customization name.
+    nick: str | None = None
 
 
 def guild_customizations(value: str) -> dict[int, _GuildCustomization]:
@@ -112,6 +116,7 @@ def guild_customizations(value: str) -> dict[int, _GuildCustomization]:
         output[id_] = _GuildCustomization(
             id=id_,
             name=v.get("name"),
+            nick=v.get("nick"),
             description=v.get("description", ""),
         )
 
@@ -311,6 +316,19 @@ class ChatGPT(commands.Cog):
                 self._guild_customizations[id_] = c
 
         log.info("Using guild customizations", customizations=self._guild_customizations)
+
+    @commands.Cog.listener("on_ready", once=True)
+    async def set_server_profiles(self) -> None:
+        """Set the nickname for the bot in each guild on ready."""
+        for guild in self._bot.guilds:
+            customization: _GuildCustomization = self._get_guild_customization(guild.id)
+            nick = customization.nick or customization.name
+
+            if nick and self._bot.application_id is not None:
+                member: discord.Member | None = guild.get_member(self._bot.application_id)
+
+                if member:
+                    await member.edit(nick=nick)
 
     @commands.Cog.listener("on_ready", once=True)
     async def add_tools(self) -> None:
@@ -542,7 +560,7 @@ class ChatGPT(commands.Cog):
         if any(m.id == self._bot.application_id for m in message.mentions):
             return True
 
-        name: str = self._get_guild_customization(message).name or config.bot_name
+        name: str = self._get_guild_customization_from_message(message).name or config.bot_name
         return name.lower() in message.content.lower()
 
     async def _get_chat_response_to_history(
@@ -843,7 +861,7 @@ class ChatGPT(commands.Cog):
 
         """
         messages: list[ChatCompletionMessageParam] = self._history[message.channel.id].copy()
-        system_message = self._get_guild_customization(message).description
+        system_message = self._get_guild_customization_from_message(message).description
 
         if not must_respond or system_message:
             messages.insert(
@@ -860,7 +878,30 @@ class ChatGPT(commands.Cog):
 
         return messages
 
-    def _get_guild_customization(self, message: discord.Message) -> _GuildCustomization:
+    def _get_guild_customization(self, guild_id: int | None) -> _GuildCustomization:
+        """Get the guild customization for the given ID.
+
+        Attributes
+        ----------
+        guild_id : int | None
+            The guild ID for which to get the customization.
+            If `guild_id` is None, return the global customization
+
+        Returns
+        -------
+        _GuildCustomization
+            The customization for the given guild ID.
+
+        """
+        return self._guild_customizations.get(
+            guild_id,
+            self._guild_customizations[None],
+        )
+
+    def _get_guild_customization_from_message(
+        self,
+        message: discord.Message,
+    ) -> _GuildCustomization:
         """Get the system customization for the guild the message was sent in.
 
         Attributes
@@ -877,7 +918,4 @@ class ChatGPT(commands.Cog):
         guild_id: int | None = (
             message.channel.guild.id if hasattr(message.channel, "guild") else None
         )
-        return self._guild_customizations.get(
-            guild_id,
-            self._guild_customizations[None],
-        )
+        return self._get_guild_customization(guild_id)
