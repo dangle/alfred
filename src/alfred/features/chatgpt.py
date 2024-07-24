@@ -524,6 +524,10 @@ class ChatGPT(commands.Cog):
                 ),
             )
 
+            if message.author.bot:
+                await log.adebug("Another bot is the author of the message.", message=message)
+                return
+
             must_respond: bool = self._must_respond(message)
 
             if not must_respond and _WAITING_FOR_CORRECTIONS not in self._bot.activities:
