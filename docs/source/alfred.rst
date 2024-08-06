@@ -12,6 +12,14 @@ Subpackages
 Submodules
 ----------
 
+alfred.api module
+-----------------
+
+.. automodule:: alfred.api
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 alfred.bot module
 -----------------
 
@@ -36,10 +44,10 @@ alfred.config module
    :undoc-members:
    :show-inheritance:
 
-alfred.context module
----------------------
+alfred.db module
+----------------
 
-.. automodule:: alfred.context
+.. automodule:: alfred.db
    :members:
    :undoc-members:
    :show-inheritance:
@@ -52,10 +60,34 @@ alfred.exceptions module
    :undoc-members:
    :show-inheritance:
 
+alfred.feature module
+---------------------
+
+.. automodule:: alfred.feature
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+alfred.fields module
+--------------------
+
+.. automodule:: alfred.fields
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 alfred.logging module
 ---------------------
 
 .. automodule:: alfred.logging
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+alfred.manor module
+-------------------
+
+.. automodule:: alfred.manor
    :members:
    :undoc-members:
    :show-inheritance:

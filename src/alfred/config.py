@@ -1,588 +1,616 @@
-"""Contains functions and attributes for processing command-line flags and environment variables.
-
-Attributes
-----------
-config : _Config
-    An instance of `_Config` that can be globally accessed for sharing processed attributes from
-    command-line flags and environment variables.
-NotGivenType : type
-    The type of NOT_GIVEN to be used in type annotations.
-NOT_GIVEN : Final[Literal[NotGivenType]]
-    A constant literal that indicates that a configuration value was not given.
+"""Contains functions and attributes for processing config files and environment variables.
 
 Examples
 --------
->>> from alfred.config import CommandLineFlag, EnvironmentVariable, config, csv
->>> config(name="a_variable", env="A_VARIABLE")
->>> config(
-    name="list_variable",
-    env=EnvironmentVariable(
-        name="list_VARIABLE",
-        type=csv,
-    )
-    flag=CommandLineFlag(
-        name="--list-variable",
-        nargs="*",
-        short="-l",
-    ),
-    required=True,
-)
-...
->>> config.load()
-...
->>> config.a_variable
-"a value"
->>> config.list_variable
+>>> from alfred import config
+>>> config.register(name="a_variable", namespace="example", env="A_VARIABLE")
+>>> config.register(name="list_variable", namespace="example", env="LIST_VARIABLE")
+>>> config.init()
+>>> config.example.a_variable
+'a value'
+>>> config.example.list_variable
 ['a', 'b', 'c']
 
 """
 
 from __future__ import annotations
 
-import argparse
-import contextlib
-import copy
-import dataclasses
-import enum
+import builtins
+import functools
 import os
+import pathlib
+import tomllib
+import types
 import typing
 
 import dotenv
 import structlog
 
 from alfred import __version__
-from alfred.exceptions import (
-    ConfigurationError,
-    EnvironmentVariableError,
-    FlagError,
-    ReadonlyConfigurationError,
-    RequiredValueError,
-)
-from alfred.translation import gettext as _
+from alfred import exceptions as exc
+from alfred.exceptions import ConfigurationError, RequiredValueError
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Container, Generator, Iterable
-    from typing import Any, Final, Literal
+    from typing import Any, ClassVar
 
-    from alfred.typing import ArgParseAction, ConfigProcessor
+    from alfred.typing import ConfigProcessor
 
 
 __all__ = (
-    "config",
-    "csv",
-    "CommandLineFlag",
-    "EnvironmentVariable",
-    "NotGivenType",
-    "NOT_GIVEN",
+    "Config",
+    "ConfigProxy",
+    "get",
+    "init",
+    "register",
 )
 
-log: structlog.stdlib.BoundLogger = structlog.get_logger()
+_log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
-class _NotGiven(enum.Enum):
-    """A sentinel type that can be used in `Literal`."""
-
-    NOT_GIVEN = enum.auto()
-
-
-type NotGivenType = Literal[_NotGiven.NOT_GIVEN]
-NOT_GIVEN: Final[Literal[NotGivenType]] = _NotGiven.NOT_GIVEN
-
-
-def csv(value: str) -> list[str]:
-    """Return a parsed list of comma-separated values from the given value.
+class ConfigProxy:
+    """A proxy object that represents sub-namespaces in a 'Config' object.
 
     Parameters
     ----------
-    value : str
-        A string containing comma-separated list of values.
-
-    Returns
-    -------
-    list[str]
-        A list of all values in the comma-separated string.
-
-    """
-    return [v.strip() for v in value.split(",")] if value else []
-
-
-@dataclasses.dataclass
-class EnvironmentVariable:
-    """A dataclass for storing the name of an environment variable and an optional result type."""
-
-    #: The name of the environment variable.
-    name: str
-
-    #: The expected type of the environment variable. The string value of the environment variable
-    #:     will be cast to this type.
-    #:     If unsupplied, the value will be returned unchanged.
-    type: ConfigProcessor | NotGivenType = NOT_GIVEN
-
-
-@dataclasses.dataclass
-class CommandLineFlag:
-    """A dataclass for storing the supported subset of `argparse` argument parameters.
-
-    `name` and `short` are the positional parameters to pass to `argparse.add_argument`.
-
-    See: https://docs.python.org/3/library/argparse.html#quick-links-for-add-argument
+    config : dict[tuple[str, ...], Any]
+        The internal data from a 'Config' object.
+    valid_attrs : set[tuple[str, ...]]
+        The set of valid attributes in the 'Config' object.
+    namespace : tuple[str]
+        A tuple of namespace segments representing the namespace to be proxied.
 
     """
 
-    #: The command flag to add to `argparse`.
-    #: This can be a required flag, an optional value ("--flag"), or a short optional flag ("-f").
-    name: str
+    __slots__ = (
+        "_config",
+        "_valid_attrs",
+        "_namespace",
+    )
 
-    #: An alias of the command.
-    #: This is often the short optional flag ("-f").
-    short: str | NotGivenType = NOT_GIVEN
+    def __init__(
+        self,
+        config: dict[tuple[str, ...], Any],
+        valid_attrs: set[tuple[str, ...]],
+        *namespace: str,
+    ) -> None:
+        self._config: dict[tuple[str, ...], Any] = config
+        self._valid_attrs = valid_attrs
+        self._namespace = namespace
 
-    # Supported `argparse.add_argument` flags.
-    action: ArgParseAction = "store"
-    choices: Container[Any] | NotGivenType = NOT_GIVEN
-    const: Any = NOT_GIVEN
-    help: str | NotGivenType = NOT_GIVEN
-    metavar: str | NotGivenType = NOT_GIVEN
-    nargs: int | Literal["*", "?", "+", NotGivenType] = NOT_GIVEN
-    type: ConfigProcessor | NotGivenType = NOT_GIVEN
-    version: str | NotGivenType = NOT_GIVEN
-
-
-@dataclasses.dataclass
-class _ConfigValue:
-    """A configuration value that will be parsed when `config.load()` is called.
-
-    Attributes
-    ----------
-    name : str
-        The name of the configuration attribute that will be assigned the computed value.
-    env : EnvironmentVariable | NotGivenType, optional
-        The name of the environment variable, if given.
-    flag : CommandLineFlag | NotGivenType, optional
-        The name of the command-line flag, if given.
-    required : bool, optional
-        Whether or not this configuration attribute is required.
-        Defaults to False.
-    default : Any, optional
-        The value to return if neither the environment variable nor the command-line flag were
-        given.
-
-    """
-
-    name: str
-    env: EnvironmentVariable | NotGivenType = NOT_GIVEN
-    flag: CommandLineFlag | NotGivenType = NOT_GIVEN
-    required: bool = False
-    default: Any = NOT_GIVEN
-    _is_computed: bool = False
-    _computed_value: Any = None
-
-    @property
-    def value(self) -> Any:
-        """Process and return the configuration attribute value.
-
-        Returns
-        -------
-        Any
-            The processed configuration attribute.
-
-        Raises
-        ------
-        ConfigurationException
-            Raised when the an attempt to access the value is made before the configuration has been
-            loaded, it is a required value, and there is no default value set.
-
-        """
-        if self._is_computed:
-            return self._computed_value
-
-        if self.default is not NOT_GIVEN:
-            return self.default
-
-        if self.required:
-            raise ConfigurationError(
-                f"Configuration attribute `{self.name}` is required but the configuration has not"
-                " yet been loaded.",
-            )
-
-        return NOT_GIVEN
-
-    @value.setter
-    def value(self, value: Any) -> None:
-        """Set the processed value.
-
-        Parameters
-        ----------
-        value : Any
-            The processed value to return.
-
-        """
-        self._is_computed = True
-        self._computed_value = value
-
-
-class _Config:
-    """A configuration mapping that loads and manages global configuration for the bot."""
-
-    def __init__(self) -> None:
-        vars(self)["_config"] = {}
-        vars(self)["_is_readonly"] = False
-        vars(self)["_is_loaded"] = False
-
+    @functools.cache
     def __getattr__(self, name: str) -> Any:
-        """Return the processed value of the configuration attribute.
+        """Get an value from the configuration data in the proxied namespace.
 
         Parameters
         ----------
         name : str
-            The name of the configuration attribute to retrieve.
+            The name of the attribute to retrieve.
 
         Returns
         -------
         Any
-            The processed value of the configuration attribute.
-            If the attribute does not exist in the mapping it returns `None`.
-
-        Raises
-        ------
-        ConfigurationException
-            Raised when the an attempt to access the value is made before the configuration has been
-            loaded, it is a required value, and there is no default value set.
-
-        """
-        if name not in vars(self)["_config"]:
-            return None
-
-        return vars(self)["_config"][name].value
-
-    def __setattr__(self, name: str, value: _ConfigValue) -> None:
-        """Assign a `_ConfigValue` to an an attribute.
-
-        Parameters
-        ----------
-        name : str
-            The name of the attribute to set.
-        value : _ConfigValue
-            The configured value that will be stored in the attribute.
-
-        """
-        if vars(self)["_is_readonly"]:
-            raise ReadonlyConfigurationError(
-                f"Unable to set configuration attribute {name} while the configuration is"
-                " read-only.",
-            )
-
-        vars(self)["_config"][name] = value
-
-    def __getitem__(self, name: str) -> Any:
-        """Return the processed value of the configuration attribute.
-
-        Parameters
-        ----------
-        name : str
-            The name of the configuration attribute to retrieve.
-
-        Returns
-        -------
-        Any
-            The processed value of the configuration attribute.
+            The value of the attribute or another 'ConfigProxy' object representing the next level
+            of the namespace.
 
         Raises
         ------
         AttributeError
-            Raised if the attribute is not in the configuration map.
-        ConfigurationException
-            Raised when the an attempt to access the value is made before the configuration has been
-            loaded, it is a required value, and there is no default value set.
+            Raised when the attribute is not valid in the given namespace.
 
         """
-        return vars(self)["__getattr__"](name)
+        qualified_name: tuple[str, ...] = (*self._namespace, name)
 
-    def __setitem__(self, name: str, value: _ConfigValue) -> None:
-        """Assign a `_ConfigValue` to an an attribute.
+        if qualified_name in self._config:
+            return self._config[qualified_name]
+
+        if qualified_name in self._valid_attrs:
+            return type(self)(self._config, self._valid_attrs, *qualified_name)
+
+        raise AttributeError(f"'Config' object has no attribute '{".".join(qualified_name)}'")
+
+    def __repr__(self) -> str:
+        """Get a string representation of the 'ConfigProxy' object and the proxied namespace."""
+        return f"<{type(self).__qualname__}: {".".join(self._namespace)}>"
+
+
+class _ConfigAttribute[T](typing.NamedTuple):
+    """A registered configuration attribute that will store configuration data."""
+
+    #: A tuple representation of the namespace and attribute used for looking up the attribute.
+    qualified_name: tuple[str, ...]
+
+    #: An optional environment variable that will be used if set.
+    #: Any value in an environment variable will take precedence over values in configuration files.
+    env: str | None = None
+
+    #: An optional parser that will be run on the configuration value.
+    parser: ConfigProcessor[T] | None = None
+
+    #: Whether or not an 'AttributeError' will be raised if the value is not configured.
+    required: bool = False
+
+    @functools.cached_property
+    def name(self) -> str:
+        """Get the attribute name of the configuration value.
+
+        Returns
+        -------
+        str
+            The attribute name of the configuration value.
+
+        """
+        return self.qualified_name[-1]
+
+    @functools.cached_property
+    def namespace(self) -> str:
+        """Get the namespace in which the attribute is stored.
+
+        Returns
+        -------
+        str
+            The namespace in which the configuration value is stored.
+
+        """
+        return ".".join(self.qualified_name[:-1])
+
+
+class _ConfigMetaclass(type):
+    """Ensures that classes are final, singletons, and must be initialized before use."""
+
+    __instances: ClassVar[dict[_ConfigMetaclass, Any]] = {}
+
+    def __new__(
+        metacls: type[_ConfigMetaclass],  # noqa: N804
+        name: str,
+        bases: tuple[type],
+        classdict: dict[str, Any],
+    ) -> _ConfigMetaclass:  # noqa: PYI019
+        """_summary_.
+
+        Parameters
+        ----------
+        metacls : type[_ConfigMetaclass]
+            The metaclass of the metaclass used to create the new class.
+        name : str
+            The name of the new.
+        bases : tuple[type]
+            The base classes of the new.
+            If any of them is also a '_ConfigMetaclass' a 'TypeError' will be raised.
+        classdict : dict[str, Any]
+            The dictionary containing all class members of the new class.
+
+        Returns
+        -------
+        _ConfigMetaclass
+            Returns a new class instance of '_ConfigMetaclass'.
+
+        Raises
+        ------
+        TypeError
+            Raised if any of the base classes are also instances of '_ConfigMetaclass'.
+
+        """
+        for base in bases:
+            if isinstance(base, _ConfigMetaclass):
+                raise TypeError(f"{base.__name__} does not support subclassing.")
+
+        return type.__new__(metacls, name, bases, classdict)
+
+    def __call__(cls: _ConfigMetaclass) -> Any:
+        """Return the singleton instance of the class.
+
+        Parameters
+        ----------
+        cls : _ConfigMetaclass
+            The class to which the singleton instance belongs.
+
+        Returns
+        -------
+        Any
+            An instance of the class 'cls'.
+
+        Raises
+        ------
+        exc.ConfigurationError
+            Raised if the class 'cls' has not been initialized by calling 'cls.init()'.
+
+        """
+        if cls in cls.__instances:
+            return cls.__instances[cls]
+
+        raise exc.ConfigurationError(
+            f"Class '{cls.__name__}' has not been initialized. Call '{cls.__name__}.init()' first.",
+        )
+
+    def init(cls: _ConfigMetaclass, *args: Any, **kwargs: Any) -> Any:
+        """_summary_.
+
+        Parameters
+        ----------
+        cls : _ConfigMetaclass
+            The class to be initialized.
+        args : Any
+            Positional arguments to pass to 'cls.__init__'.
+        kwargs : Any
+            Keyword arguments to pass to 'cls.__init__'.
+
+        Returns
+        -------
+        Any
+            The singleton instance of the class 'cls'.
+
+        Raises
+        ------
+        exc.ConfigurationError
+            Raised if an instance of 'cls' has already been created and initialized.
+
+        """
+        if cls in cls.__instances:
+            raise exc.ConfigurationError(f"Class '{cls.__name__}' has already been initialized.")
+
+        cls.__instances[cls] = super().__call__(*args, **kwargs)
+        return cls.__instances[cls]
+
+
+class Config(metaclass=_ConfigMetaclass):
+    """A global configuration singleton to be used by the application and any spawned bots.
+
+    Parameters
+    ----------
+    config_file : pathlib.Path | str | None
+        The path to the TOML configuration file containing the configuration data.
+
+    """
+
+    __slots__ = (
+        "_config",
+        "_valid_attrs",
+    )
+
+    #: The registry of all configurable values.
+    _registry: ClassVar[dict[tuple[str, ...], _ConfigAttribute]] = {}
+
+    #: Whether or not the 'Config' has been initialized.
+    _initialized: ClassVar[bool] = False
+
+    def __init__(self, config_file: pathlib.Path | str | None = None) -> None:
+        self._config: dict[tuple[str, ...], Any] = {}
+        self._valid_attrs: set[tuple[str, ...]] = set()
+
+        self._process_env()
+
+        if config_file:
+            data: dict[str, Any] = self._load_file(config_file)
+            self._process(data)
+
+        for attr in self._registry.values():
+            if attr.required and attr.qualified_name not in self._config:
+                raise RequiredValueError(name=attr.name, namespace=attr.namespace)
+
+        Config._initialized = True
+
+    @functools.cache
+    def __getattr__(self, name: str) -> Any:
+        """Get the value of the attribute from the configuration.
 
         Parameters
         ----------
         name : str
-            The name of the attribute to set.
-        value : _ConfigValue
-            The configured value that will be stored in the attribute.
-
-        """
-        vars(self)["__setattr__"](name, value)
-
-    @property
-    def config(self) -> dict[str, Any]:
-        """Return the dictionary of the raw `_ConfigValue` objects.
+            The name of the attribute containing the configuration value.
 
         Returns
         -------
-        dict[str, Any]
-            A map of configuration attribute names to `_ConfigValue` objects
+        Any
+            The value stored in the configuration attribute or a 'ConfigProxy' if the attribute
+            represents a subnamespace.
+
+        Raises
+        ------
+        AttributeError
+            Raised if the attribute was not configured.
 
         """
-        return vars(self)["_config"]
+        if (name,) in self._valid_attrs:
+            return ConfigProxy(self._config, self._valid_attrs, name)
 
-    def __call__(
-        self,
+        raise AttributeError(f"'Config' object has no attribute '{name}'")
+
+    @classmethod
+    def get(cls, name: str, namespace: str, *, required: bool = False, default: Any = ...) -> Any:
+        """_summary_.
+
+        Parameters
+        ----------
+        name : str
+            The name of the attribute containing the configuration value.
+        namespace : str
+            The namespace in which the configuration value is stored.
+        required : bool, optional
+            Whether or not to raise 'AttributeError' if the value is not found; by default False.
+        default : Any, optional
+            An optional default value to return if the configuration value is not found.
+
+        Returns
+        -------
+        Any
+            The requested configuration value or None if the value is not required and no default
+            value is specified.
+
+        Raises
+        ------
+        AttributeError
+            Raised if the value is required, is not configured, and has no default value.
+
+        """
+        self = cls()
+
+        qualified_name: tuple[str, ...] = self._get_qualified_name(name, namespace)
+
+        if qualified_name not in self._config:
+            if default is not ...:
+                return default
+
+            if required:
+                raise AttributeError(name=".".join(qualified_name), obj=self)
+
+            return None
+
+        return self._config[qualified_name]
+
+    @classmethod
+    def register[
+        T
+    ](
+        cls,
         name: str,
+        namespace: str,
         *,
-        flag: CommandLineFlag | str | NotGivenType = NOT_GIVEN,
-        env: EnvironmentVariable | str | NotGivenType = NOT_GIVEN,
-        default: Any = NOT_GIVEN,
+        env: str | None = None,
+        parser: ConfigProcessor[T] | None = None,
         required: bool = False,
     ) -> None:
         """Register a new configuration attribute.
 
-        If currently in a `config.readonly` context block, this will silently do nothing.
+        Parameters
+        ----------
+        name : str
+            The name of the attribute in the configuration file that stores the configuration value.
+        namespace : str | None, optional
+            The namespace in the configuration file to look for the configuration value.
+        env : str | None, optional
+            An environment variable that can be used to supply the configuration value.
+            Environment variables take precedence over values in a configuration file.
+        parser : ConfigProcessor[T] | None, optional
+            A parser to be used to convert the value from a 'ConfigValue' to 'T'.
+        required : bool, optional
+            Whether or not to throw an error if the configuration value cannot be found.
+
+        Raises
+        ------
+        RequiredValueError
+            Raised if the configuration has already been initialized and the configuration value is
+            not configured.
+
+        """
+        qualified_name: tuple[str, ...] = cls._get_qualified_name(name, namespace)
+
+        if qualified_name in cls._registry:
+            return
+
+        attr = _ConfigAttribute(
+            qualified_name=qualified_name,
+            env=env,
+            parser=parser,
+            required=required,
+        )
+        cls._registry[qualified_name] = attr
+
+        if cls._initialized:
+            self = cls()
+
+            if env is not None and env in os.environ:
+                self._process_env_var(attr)
+            elif qualified_name in self._config and parser:
+                self._config[qualified_name] = self._freeze(parser(self._config[qualified_name]))
+
+            if required and qualified_name not in self._config:
+                raise RequiredValueError(name=attr.name, namespace=attr.namespace)
+
+    @property
+    def version(self) -> str:
+        """Get the version of the application."""
+        return __version__
+
+    def _process_env(self) -> None:
+        """Something."""
+        dotenv.load_dotenv()
+
+        for attr in self._registry.values():
+            self._process_env_var(attr)
+
+    def _process_env_var(self, attr: _ConfigAttribute[Any]) -> None:
+        """Process a '_ConfigAttribute' if it has an environment variable.
+
+        Parameters
+        ----------
+        attr : _ConfigAttribute[Any]
+            The '_ConfigAttribute' to process.
+
+        """
+        if attr.qualified_name in self._config:
+            _log.warning(
+                "Value already exists for configuration value. Not overwriting it.",
+                namespace=attr.qualified_name,
+                value=self._config[attr.qualified_name],
+            )
+            return
+
+        if attr.env and attr.env in os.environ:
+            value = os.environ[attr.env]
+
+            if attr.parser:
+                value = attr.parser(value)
+
+            self._config[attr.qualified_name] = self._freeze(value)
+
+            for i, _ in enumerate(attr.qualified_name):
+                self._valid_attrs.add(tuple(attr.qualified_name[: i + 1]))
+
+    def _load_file(self, config_file: pathlib.Path | str) -> dict[str, Any]:
+        """Load a TOML configuration file.
+
+        Parameters
+        ----------
+        config_file : pathlib.Path | str
+            The path to the TOML configuration file.
+
+        Returns
+        -------
+        dict[str, Any]
+            The fully processed configuration data.
+
+        Raises
+        ------
+        ConfigurationError
+            Raised if the file cannot be found.
+
+        """
+        if isinstance(config_file, str):
+            config_file = pathlib.Path(config_file)
+
+        try:
+            with config_file.open("rb") as fp:
+                return tomllib.load(fp)
+        except FileNotFoundError as e:
+            raise ConfigurationError(str(e)) from e
+
+    def _process(self, value: Any, *namespace: str) -> None:
+        """Process a value from the configuration file.
+
+        Parameters
+        ----------
+        value : Any
+            The value from the configuration file.
+        namespace : tuple[str]
+            The namespace in which the value is stored.
+
+        """
+        for i in range(1, len(namespace) + 1):
+            self._valid_attrs.add(tuple(namespace[:i]))
+
+        if namespace in self._config:
+            _log.warning(
+                "Value already exists for configuration value. Not overwriting it.",
+                namespace=namespace,
+                value=self._config[namespace],
+            )
+            return
+
+        if (attr := self._registry.get(namespace, None)) and attr.parser:
+            self._config[namespace] = self._freeze(attr.parser(value))
+            return
+
+        if isinstance(value, dict):
+            for k, v in value.items():
+                self._process(v, *namespace, k)
+
+            return
+
+        self._config[namespace] = self._freeze(value)
+
+    def _freeze(self, value: Any) -> Any:
+        """Get a nested read-only version of the value.
+
+        Parameters
+        ----------
+        value : Any
+            The value to freeze.
+
+        Returns
+        -------
+        Any
+            A frozen version of the value or the original value.
+
+        """
+        match type(value):
+            case builtins.dict:
+                value_copy = value.copy()
+                for k, v in value.items():
+                    value_copy[k] = self._freeze(v)
+                return types.MappingProxyType(value_copy)
+            case builtins.list | builtins.set | builtins.tuple:
+                return tuple(self._freeze(v) for v in value)
+            case _:
+                return value
+
+    @staticmethod
+    def _get_qualified_name(name: str, namespace: str) -> tuple[str, ...]:
+        """Get the tuple of the namespace and name that represents a configuration value.
 
         Parameters
         ----------
         name : str
-            The name of the configuration attribute to set.
-        env : CommandLineFlag | str | NotGivenType, optional
-            The name of the environment variable, if given.
-        flag : EnvironmentVariable | str | NotGivenType, optional
-            The name of the command-line flag, if given.
-        default : Any, optional
-            The value to return if neither the environment variable nor the command-line flag are
-            found by the time `config.load()` has been called.
-        required : bool, optional
-            Whether or not this configuration attribute is required.
-            Defaults to False.
+            The name of the attribute containing the configuration value.
+        namespace : str
+            The namespace in which the configuration value is stored.
+
+        Returns
+        -------
+        tuple[str, ...]
+            A tuple representing a fully qualified configuration attribute.
 
         Raises
         ------
         ValueError
-            Raised if `name` is an empty string or neither`flag` nor `env` are specified.
+            Raised if 'name' or 'namespace' are empty strings.
 
         """
-        if vars(self)["_is_readonly"]:
-            return
-
         if not name:
-            raise ValueError("`name` must not be empty.")
+            raise ValueError("`name` must be a non-empty string.")
 
-        if not flag and not env:
-            raise ValueError("At least one of `flag` or `env` must be given.")
+        if not namespace:
+            raise ValueError("`namespace` must be a non-empty string")
 
-        if isinstance(env, str):
-            env = EnvironmentVariable(name=env) if env else NOT_GIVEN
-
-        if isinstance(flag, str):
-            flag = CommandLineFlag(name=flag) if flag else NOT_GIVEN
-
-        setattr(
-            self,
-            name,
-            _ConfigValue(name=name, env=env, flag=flag, required=required, default=default),
-        )
-
-    @property
-    def bot_name(self) -> str:
-        """Return the bot name.
-
-        Returns
-        -------
-        str
-            The bot name.
-
-        """
-        return (
-            self.alfred_name
-            if self.alfred_name and self.alfred_name is not NOT_GIVEN
-            else _("Alfred")
-        )
-
-    @property
-    def version(self) -> str:
-        """Return the current bot version.
-
-        Returns
-        -------
-        str
-            The bot version.
-
-        """
-        return __version__
-
-    @property
-    @contextlib.contextmanager
-    def readonly(self) -> Generator[None, None, None]:
-        """A context manager that will lock the configuration so that no changes can occur.
-
-        This is useful for loading features because `discord.Bot.load_extension` executes the module
-        code again after the module has been loaded for configuring the bot.
-
-        Setting the configuration to read-only prevents computed values from being overwritten by
-        non-computed values.
-        """
-        vars(self)["_is_readonly"] = True
-        try:
-            yield
-        finally:
-            vars(self)["_is_readonly"] = False
-
-    @property
-    def is_loaded(self) -> bool:
-        """Return a boolean value representing if the configuration has been loaded.
-
-        Returns
-        -------
-        bool
-            `True` if the configuration has been loaded, else `False`.
-
-        """
-        return vars(self)["_is_loaded"]
-
-    def load(self, *args: Any, **kwargs: Any) -> None:
-        """Load all environment variables and parse the command-line arguments.
-
-        Parameters
-        ----------
-        args : Any
-            All positional arguments are passed to `argparse.ArgumentParser`.
-        kwargs : Any
-            All keyword arguments are passed to `argparse.ArgumentParser`.
-
-        See: https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser
-
-        """
-        if vars(self)["_is_readonly"]:
-            raise ReadonlyConfigurationError(
-                "Unable to load the configuration while the configuration is read-only.",
-            )
-
-        dotenv.load_dotenv()
-
-        self._load_flags(*args, **kwargs)
-        self._load_env()
-
-        uncomputed_config_values: Iterable[_ConfigValue] = (
-            urcv for urcv in self.config.values() if not urcv._is_computed  # noqa: SLF001
-        )
-        for cv in uncomputed_config_values:
-            if cv.default is not NOT_GIVEN:
-                cv.value = cv.default
-                continue
-
-            if cv.required:
-                if cv.env and cv.flag:
-                    raise RequiredValueError(
-                        name=cv.name,
-                        env_name=cv.env.name,
-                        flag_name=cv.flag.name,
-                    )
-                if cv.env:
-                    raise EnvironmentVariableError(cv.env.name)
-                if cv.flag:
-                    raise FlagError(cv.flag.name)
-
-        vars(self)["_is_loaded"] = True
-
-    def _load_flags(self, *args: Any, **kwargs: Any) -> None:
-        """Load and parse the command-line arguments.
-
-        Parameters
-        ----------
-        args : Any
-            All positional arguments are passed to `argparse.ArgumentParser`.
-        kwargs : Any
-            All keyword arguments are passed to `argparse.ArgumentParser`.
-
-        See: https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser
-
-        """
-        kwargs["exit_on_error"] = not vars(self)["_is_loaded"]
-        parser = argparse.ArgumentParser(*args, **kwargs)
-
-        flag_config_values: tuple[_ConfigValue, ...] = tuple(
-            typing.cast(_ConfigValue, cv) for cv in self.config.values() if cv.flag is not NOT_GIVEN
-        )
-
-        for cv in flag_config_values:
-            # Inform mypy that this cannot be None
-            cv.flag = typing.cast(CommandLineFlag, cv.flag)
-
-            kw: dict[str, Any] = copy.copy(vars(cv.flag))
-            del kw["name"]
-            del kw["short"]
-
-            for k in set(kw.keys()):
-                if getattr(cv.flag, k) is NOT_GIVEN:
-                    del kw[k]
-
-            if cv.required and not cv.env and cv.flag.name.startswith("-"):
-                kw["required"] = True
-
-            parameters: tuple[str] | tuple[str, str] = (
-                (cv.flag.short, cv.flag.name) if cv.flag.short is not NOT_GIVEN else (cv.flag.name,)
-            )
-            parser.add_argument(*parameters, dest=cv.name, **kw)
-
-        parsed_args: argparse.Namespace = parser.parse_args()
-
-        for cv in flag_config_values:
-            try:
-                value: Any = getattr(parsed_args, cv.name)
-                if value is not None or cv.env is NOT_GIVEN:
-                    cv.value = value
-            except AttributeError:
-                pass
-
-    def _load_env(self) -> None:
-        """Load and parse all configured environment variables."""
-        env_config_values: Iterable[_ConfigValue] = (
-            cv
-            for cv in self.config.values()
-            if cv.env is not NOT_GIVEN and not cv._is_computed  # noqa: SLF001
-        )
-        for cv in env_config_values:
-            # Inform mypy that this cannot be None
-            cv.env = typing.cast(EnvironmentVariable, cv.env)
-
-            if cv.env.name and cv.env.name in os.environ:
-                if cv.env.type is NOT_GIVEN:
-                    cv.value = os.environ[cv.env.name]
-                    continue
-
-                try:
-                    cv.value = cv.env.type(os.environ[cv.env.name])
-                except Exception as e:
-                    message: str = f"Unable to process environment variable: {cv.env.name}"
-                    if cv.required:
-                        raise ValueError(message) from e
-                    log.warning(message, exc_info=e)
-
-    def unload(self) -> None:
-        """Reset the configuration mapping.
-
-        Raises
-        ------
-        ReadonlyConfigurationException
-            Raised if this is called while in the `config.readonly` context manager.
-
-        """
-        if vars(self)["_is_readonly"]:
-            raise ReadonlyConfigurationError(
-                "Unable to unload the configuration while the configuration is read-only.",
-            )
-
-        del vars(self)["_config"]
-        vars(self)["_config"] = {}
-        vars(self)["_is_loaded"] = False
-
-    def __delete__(self, name: str) -> None:
-        """Delete the given configuration attribute.
-
-        Parameters
-        ----------
-        name : str
-            The name of the configuration attribute to delete.
-
-        """
-        del vars(self)["_config"][name]
+        name = name.strip()
+        return (*namespace.split("."), name)
 
 
-# The globally accessed configuration instance
-config = _Config()
+def __getattr__(name: str) -> Any:
+    """Get the value of the attribute from the configuration singleton.
+
+    Parameters
+    ----------
+    name : str
+        The name of the attribute containing the configuration value.
+
+    Returns
+    -------
+    Any
+        The value stored in the configuration attribute or a 'ConfigProxy' if the attribute
+        represents a subnamespace.
+
+    Raises
+    ------
+    AttributeError
+        Raised if the attribute was not configured.
+
+    """
+    if name in globals():
+        return globals()[name]
+
+    self = Config()
+
+    if (name,) in self._valid_attrs:
+        return ConfigProxy(self._config, self._valid_attrs, name)
+
+    raise AttributeError(f"'Config' object has no attribute '{name}'")
+
+
+#: An alias for 'Config.init'
+init = Config.init
+
+#: An alias for 'Config.register'
+register = Config.register
+
+#: An alias for 'Config.get'
+get = Config.get

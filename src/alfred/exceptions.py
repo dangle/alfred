@@ -14,9 +14,6 @@ __all__ = (
     "BotError",
     "ImageDownloadError",
     "ConfigurationError",
-    "ReadonlyConfigurationError",
-    "FlagError",
-    "EnvironmentVariableError",
     "RequiredValueError",
     "FeatureError",
     "FeatureNotFoundError",
@@ -57,7 +54,7 @@ class BotError(Exception):
             attributes that can be serialized.
 
         """
-        return (self.__class__, tuple(vars(self).values()))
+        return (type(self), tuple(vars(self).values()))
 
 
 class ImageDownloadError(BotError):
@@ -112,115 +109,36 @@ class ConfigurationError(BotError):
         super().__init__(message, os.EX_CONFIG)
 
 
-class ReadonlyConfigurationError(ConfigurationError):
-    """Raised when a function an attempt to change the configuration is made while it is read-only.
-
-    Parameters
-    ----------
-    message : str
-        The message to log that describes the function called while the configuration was read-only.
-
-    Attributes
-    ----------
-    message : str
-        The message to log that describes the function called while the configuration was read-only.
-    exit_code : ExitCode
-        An integer return code that should be returned when the program exits.
-        This is always `os.EX_CONFIG`.
-
-    """
-
-
-class FlagError(ConfigurationError):
-    """Raised when a required command-line flag is missing.
-
-    Parameters
-    ----------
-    flag_name : str
-        The name of the missing command-line flag.
-
-    Attributes
-    ----------
-    message : str
-        The message that will be logged describing which flag is missing.
-    exit_code : ExitCode
-        An integer return code that should be returned when the program exits.
-        This is always `os.EX_CONFIG`.
-    flag_name : str
-        The name of the missing command-line flag.
-
-    """
-
-    def __init__(self, flag_name: str) -> None:
-        super().__init__(f"{flag_name} is a required command line flag")
-        self.var_name: str = flag_name
-
-
-class EnvironmentVariableError(ConfigurationError):
-    """Raised when a required environment variable is missing.
-
-    Parameters
-    ----------
-    env_name : str
-        The name of the missing environment variable.
-
-    Attributes
-    ----------
-    message : str
-        The message that will be logged describing which environment variable is missing.
-    exit_code : ExitCode
-        An integer return code that should be returned when the program exits.
-        This is always `os.EX_CONFIG`.
-    env_name : str
-        The name of the missing environment variable.
-
-    """
-
-    def __init__(self, env_name: str) -> None:
-        super().__init__(f"{env_name} is a required environment variable")
-        self.env_name: str = env_name
-
-
 class RequiredValueError(ConfigurationError):
     """Raised when a required configuration value is missing.
 
-    This should be raised when both an environment variable and a command-line flag are specified
-    and the value is marked as required, but neither value is found.
-
     Parameters
     ----------
     name : str
-        The name of the missing config attribute.
-    flag_name : str
-        The name of the missing command-line flag.
-    env_name : str
-        The name of the missing environment variable.
+        The name of the missing configuration value.
+    namespace : str
+        The namespace where the configuration value was expected to be found.
 
     Attributes
     ----------
     message : str
-        The message that will be logged describing which configuration attribute was missing and the
-        names of the command-line flag and environment variable checked.
+        The message that will be logged describing the configuration error.
+    name : str
+        The name of the missing configuration value.
+    namespace : str
+        The namespace where the configuration value was expected to be found.
     exit_code : ExitCode
         An integer return code that should be returned when the program exits.
         This is always `os.EX_CONFIG`.
-    name : str
-        The name of the missing config attribute.
-    flag_name : str
-        The name of the missing command-line flag.
-    env_name : str
-        The name of the missing environment variable.
 
     """
 
-    def __init__(self, name: str, flag_name: str, env_name: str) -> None:
+    def __init__(self, name: str, namespace: str) -> None:
         super().__init__(
-            f"Unable to get required attribute {name}"
-            f" from flag `{flag_name} or environment variable `{env_name}`",
+            f"Required configuration value `{name}` is missing from namespace {namespace}.",
         )
-        self.name: str = name
-        self.flag_name: str = flag_name
-        self.env_name: str = env_name
+        self.name = name
+        self.namespace = namespace
 
 
 class FeatureError(BotError):
@@ -271,5 +189,4 @@ class FeatureNotFoundError(FeatureError):
     """
 
     def __init__(self, feature: str) -> None:
-        super().__init__(feature, f"Feature not found: {feature}")
         super().__init__(feature, f"Feature not found: {feature}")

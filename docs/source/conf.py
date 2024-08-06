@@ -8,6 +8,10 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 
+from alfred import config
+
+config.init()
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 

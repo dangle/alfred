@@ -8,20 +8,30 @@ readme = "README.md"
 license = { text = "MIT" }
 dependencies = [
     "py-cord[speed,voice]>=2.6.0",
-    "openai>=1.36.0",
+    "openai>=1.38.0",
     "python-dotenv>=1.0.1",
     "structlog>=24.4.0",
-    "aiohttp[speedups]>=3.9.5",
+    "aiohttp[speedups]>=3.10.1",
     "pyyaml>=6.0.1",
+    "tortoise-orm>=0.21.5",
+    "aerich>=0.7.2",
+    "fastapi>=0.112.0",
+    "hypercorn[uvloop]>=0.17.3",
 ]
 
-[project.entry-points."alfred.features"]
-"Bot Admin" = "alfred.features.admin"
-"DALL-E" = "alfred.features.dalle"
-"ChatGPT" = "alfred.features.chatgpt"
+[tool.pdm.dev-dependencies]
+dev = ["mypy>=1.11.0", "ruff>=0.5.0", "isort>=5.13.2", "black>=24.4.2"]
+docs = ["sphinx>=7.4.7", "sphinx-rtd-theme>=2.0.0"]
+test = ["pytest>=8.2.2"]
+tools = ["bpython>=0.24"]
+types = ["types-PyYAML>=6.0.12.20240311"]
 
 [project.scripts]
-alfred = "alfred.cli:run"
+alfred = "alfred.cli:main"
+
+[project.entry-points."alfred.features"]
+DallE = "alfred.features.dalle:DallE"
+ChatGPT = "alfred.features.chat:ChatGPT"
 
 [tool.black]
 line-length = 100
@@ -34,6 +44,7 @@ line_length = 100
 select = ["ALL"]
 ignore = [
     "ANN401",
+    "B019",
     "BLE001",
     "D107",
     "D203",
@@ -60,26 +71,8 @@ line-length = 100
 [tool.mypy]
 enable_incomplete_feature = ["NewGenericSyntax"]
 
-[[tool.mypy.overrides]]
-module = ["aiohttp.*", "discord.*", "structlog.*", "openai.*", "dotenv.*"]
-ignore_missing_imports = true
-
 [tool.pdm]
 distribution = true
-
-[tool.pdm.dev-dependencies]
-test = ["pytest>=8.2.2"]
-dev = [
-    "bpython>=0.24",
-    "mypy>=1.11.0",
-    "pyment>=0.3.3",
-    "ruff>=0.5.0",
-    "sphinx>=7.4.7",
-    "sphinx-rtd-theme>=2.0.0",
-    "isort>=5.13.2",
-    "black>=24.4.2",
-    "types-PyYAML>=6.0.12.20240311",
-]
 
 [tool.pdm.scripts]
 pre_start = { shell = "bash -c '{pdm} install &> /dev/null'" }

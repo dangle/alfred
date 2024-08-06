@@ -10,53 +10,34 @@ Commands
 
 """
 
+from __future__ import annotations
+
 import ast
 import enum
 import http
 import io
 import pathlib
+import typing
 import urllib.parse
-from typing import cast
 
 import aiohttp
 import discord
 import openai
 import structlog
-from discord.ext import commands
 
-from alfred import bot
 from alfred import exceptions as exc
-from alfred.config import config
-from alfred.features import _ai
+from alfred import feature, fields
 from alfred.translation import gettext as _
 
-__all__ = ("setup",)
+if typing.TYPE_CHECKING:
+    from typing import Literal
 
-# Set the name of the feature.
-__feature__: str = "Dall-E"
+__all__ = ("DallE",)
 
-log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
+#: The name of the feature.
+_FEATURE: str = "Dall-E"
 
-_ai.configure_ai()
-
-
-def setup(bot: bot.Bot) -> None:
-    """Add this feature `commands.Cog` to the `bot.Bot`.
-
-    If the `openai.AsyncOpenAI` client has not been configured as the `ai` configuration attribute
-    this will not be added to the `bot.Bot`.
-
-    Parameters
-    ----------
-    bot : bot.Bot
-        The `bot.Bot` to which to add the feature.
-
-    """
-    if config.ai:
-        bot.add_cog(DallE(bot))
-        return
-
-    log.info(f'Config does not have the "ai" attribute. Not adding the feature: {__feature__}')
+_log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=_FEATURE)
 
 
 class _DrawPresence(enum.Enum):
@@ -96,15 +77,30 @@ class _DallE3Sizes(enum.StrEnum):
     TALL = "1024x1792"
 
 
-class DallE(commands.Cog):
+#: Type alias to make the AI client happy.
+type _DallESizes = Literal["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"]
+
+#: Type alias to make the AI client happy.
+type _DallEImageQuality = Literal["standard", "hd"]
+
+
+@feature.name(_FEATURE)
+class DallE(feature.Feature):
     """Manages AI art interactions and commands in the bot."""
 
-    draw = discord.SlashCommandGroup("draw", "Commands for drawing images using DALL-E.")
+    #: An asynchronous OpenAI client.
+    ai = fields.AIField()
 
-    def __init__(self, bot: bot.Bot) -> None:
-        self._bot = bot
+    #: The bot to which this feature is attached.
+    bot = fields.BotField()
 
-    @draw.command(name=_Model.DALL_E_3, guild_ids=config.guild_ids)
+    #: The intents required by this feature.
+    intents: discord.Intents = discord.Intents(guilds=True)
+
+    #: The command group all commands in this feature must be under.
+    draw = feature.CommandGroup("draw", "Commands for drawing images using DALL-E.")
+
+    @draw.command(name=_Model.DALL_E_3)
     @discord.option(
         _("prompt"),
         str,
@@ -130,8 +126,8 @@ class DallE(commands.Cog):
         ctx: discord.ApplicationContext,
         *,
         prompt: str,
-        size: str = _DallE3Sizes.SQUARE,
-        quality: str = _ImageQuality.STANDARD,
+        size: _DallE3Sizes = _DallE3Sizes.SQUARE,
+        quality: _ImageQuality = _ImageQuality.STANDARD,
     ) -> None:
         """Generate an image using DALL-E 3.
 
@@ -151,7 +147,7 @@ class DallE(commands.Cog):
             If this is not specified it will default to "standard".
 
         """
-        async with self._bot.presence(activity=_DrawPresence.DALL_E_3.value):
+        async with self.bot.presence(activity=_DrawPresence.DALL_E_3.value):
             await self._generate_image(
                 ctx,
                 prompt=prompt,
@@ -160,13 +156,8 @@ class DallE(commands.Cog):
                 model=_Model.DALL_E_3,
             )
 
-    @draw.command(name=_Model.DALL_E_2, guild_ids=config.guild_ids)
-    @discord.option(
-        _("prompt"),
-        str,
-        required=True,
-        parameter_name="prompt",
-    )
+    @draw.command(name=_Model.DALL_E_2)
+    @discord.option(_("prompt"), str, required=True, parameter_name="prompt")
     @discord.option(
         _("size"),
         str,
@@ -186,8 +177,8 @@ class DallE(commands.Cog):
         ctx: discord.ApplicationContext,
         *,
         prompt: str,
-        size: str = _DallE2Sizes.LARGE,
-        quality: str = _ImageQuality.STANDARD,
+        size: _DallE2Sizes = _DallE2Sizes.LARGE,
+        quality: _ImageQuality = _ImageQuality.STANDARD,
     ) -> None:
         """Generate an image using DALL-E 2.
 
@@ -207,7 +198,7 @@ class DallE(commands.Cog):
             If this is not specified it will default to "standard".
 
         """
-        async with self._bot.presence(activity=_DrawPresence.DALL_E_2.value):
+        async with self.bot.presence(activity=_DrawPresence.DALL_E_2.value):
             await self._generate_image(
                 ctx,
                 prompt=prompt,
@@ -221,9 +212,9 @@ class DallE(commands.Cog):
         ctx: discord.ApplicationContext,
         *,
         prompt: str,
-        size: str = _DallE3Sizes.SQUARE,
-        quality: str = _ImageQuality.STANDARD,
-        model: str = _Model.DALL_E_3,
+        size: _DallE2Sizes | _DallE3Sizes = _DallE3Sizes.SQUARE,
+        quality: _ImageQuality = _ImageQuality.STANDARD,
+        model: _Model = _Model.DALL_E_3,
     ) -> None:
         """Generate an image using DALL-E.
 
@@ -248,27 +239,25 @@ class DallE(commands.Cog):
             If this is not specified it will default to "dall-e-3".
 
         """
-        log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=__feature__)
-
         await ctx.defer()
 
         try:
-            response: openai.types.ImagesResponse = await config.ai.images.generate(
+            response: openai.types.ImagesResponse = await self.ai.images.generate(
                 model=model,
                 prompt=prompt,
-                size=size,
-                quality=quality,
+                size=typing.cast(_DallESizes, size),
+                quality=typing.cast(_DallEImageQuality, quality),
                 n=1,
             )
-            url: str = cast(str, response.data[0].url)
+            url: str = typing.cast(str, response.data[0].url)
             image: discord.File = await self._get_image(url)
             await ctx.respond(file=image)
         except openai.OpenAIError as e:
-            await log.awarning(str(e), exc_info=e)
+            await _log.awarning(str(e), exc_info=e)
             message: str = self._parse_openai_error(e)
             await ctx.respond(message)
         except exc.ImageDownloadError as e:
-            await log.awarning(str(e), exc_info=e)
+            await _log.awarning(str(e), exc_info=e)
             await ctx.respond(_("Unable to download generated image."))
 
     async def _get_image(self, uri: str) -> discord.File:

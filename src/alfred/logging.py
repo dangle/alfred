@@ -1,13 +1,19 @@
 """Contains functions necessary for configuring logging to be both structured and standardized."""
 
+from __future__ import annotations
+
 import contextlib
 import logging
 import os
-from collections.abc import Generator
-from typing import Any
+import typing
 
 import structlog
-from structlog.typing import EventDict, Processor, ProcessorReturnValue, WrappedLogger
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Generator
+    from typing import Any
+
+    from structlog.typing import EventDict, Processor, ProcessorReturnValue, WrappedLogger
 
 __all__ = (
     "configure_logging",
@@ -42,7 +48,37 @@ def _rename_event_key(
     return event_dict
 
 
-# Common logging processors for both structlog and logging
+def _remove_locals(
+    _: WrappedLogger,
+    __: str,
+    event_dict: EventDict,
+) -> ProcessorReturnValue:
+    """Remove local variables from exception frames in logs.
+
+    Parameters
+    ----------
+    _: WrappedLogger
+        Unused.
+    __: str
+        Unused.
+    event_dict: EventDict
+        The structlog event dictionary representing the current status of the logging object
+        that will be output once processing has completed.
+
+    Returns
+    -------
+    ProcessorReturnValue
+        `event_dict` modified by removing locals from any exception frames.
+
+    """
+    for exception in event_dict.get("exception", {}):
+        for frame in exception["frames"]:
+            del frame["locals"]
+
+    return event_dict
+
+
+#: Common logging processors for both structlog and logging
 _SHARED_PROCESSORS: list[Processor] = [
     structlog.stdlib.add_log_level,
     structlog.stdlib.add_logger_name,
@@ -58,6 +94,7 @@ _SHARED_PROCESSORS: list[Processor] = [
         ],
     ),
     _rename_event_key,
+    structlog.processors.dict_tracebacks,
 ]
 
 
@@ -87,8 +124,8 @@ def configure_logging(min_level: int | None = None) -> None:
 
     shared_processors = _SHARED_PROCESSORS
 
-    if min_level == logging.DEBUG:
-        shared_processors = [*_SHARED_PROCESSORS, structlog.processors.dict_tracebacks]
+    if min_level > logging.DEBUG:
+        shared_processors = [*_SHARED_PROCESSORS, _remove_locals]
 
     structlog.configure(
         processors=[
@@ -111,8 +148,10 @@ def configure_logging(min_level: int | None = None) -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     root_logger = logging.getLogger()
+
     while root_logger.hasHandlers():
         root_logger.removeHandler(root_logger.handlers[0])
+
     root_logger.addHandler(handler)
     root_logger.setLevel(min_level)
     logging.captureWarnings(capture=True)
