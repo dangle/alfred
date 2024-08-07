@@ -45,7 +45,7 @@ from openai.types.chat import (
 from openai.types.chat.chat_completion_message_tool_call_param import Function
 from openai.types.shared_params import FunctionDefinition
 
-from alfred import db, feature, fields
+from alfred import feature, fields
 from alfred.features.chat.context import MessageApplicationContext
 from alfred.translation import gettext as _
 
@@ -121,7 +121,6 @@ class ChatGPT(feature.Feature):
     model = fields.ConfigField[str](
         namespace="alfred.openai",
         env="CHATGPT_MODEL",
-        required=False,
         default=_ChatGPTModels.GPT_4O,
     )
 
@@ -129,7 +128,6 @@ class ChatGPT(feature.Feature):
     #: Higher values are more creative.
     temperature = fields.BoundedConfigField[float][0:1](  # type: ignore[operator]
         parser=float,
-        required=False,
         default=0.2,
     )
 
@@ -153,19 +151,18 @@ class ChatGPT(feature.Feature):
     #: seconds.
     _TIME_TO_WAIT_FOR_CORRECTIONS_S: int = 60
 
+    _CONTROL_MESSAGE: str = _(
+        "If you do not believe a message is intended for you, respond with: {response}\n",
+    ).format(response=_NO_RESPONSE)
+    _TOOL_MESSAGE: str = _(
+        "If multiple functions could be returned, pick one instead of asking which function to"
+        " use.\n"
+        "If you are get a file from a function, do *NOT* try to embed it with  markdown syntax.\n",
+    )
+
     def __init__(self) -> None:
         self._history: dict[int, list[ChatCompletionMessageParam]] = defaultdict(list)
         self._history_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
-
-        self._control_message: str = _(
-            "If you do not believe a message is intended for you, respond with: {response}\n",
-        ).format(response=self._NO_RESPONSE)
-        self._tool_message: str = _(
-            "If multiple functions could be returned, pick one instead of asking which function to"
-            " use.\n"
-            "If you are get a file from a function, do *NOT* try to embed it with  markdown"
-            " syntax.\n",
-        )
         self._tools: dict[str, _Tool] = {}
 
     @feature.listener("on_ready", once=True)
@@ -714,7 +711,10 @@ class ChatGPT(feature.Feature):
 
         """
         messages: list[ChatCompletionMessageParam] = self._history[message.channel.id].copy()
-        system_message = (await self._get_identity(message)).description
+        guild_id: int | None = (
+            message.channel.guild.id if hasattr(message.channel, "guild") else None
+        )
+        system_message = (await self.staff.get_identity(guild_id)).description
 
         if not must_respond or system_message:
             messages.insert(
@@ -722,30 +722,11 @@ class ChatGPT(feature.Feature):
                 ChatCompletionSystemMessageParam(
                     role=_MessageRole.System,
                     content=(
-                        f"{self._tool_message}"
-                        f"{"" if must_respond else self._control_message}"
+                        f"{self._TOOL_MESSAGE}"
+                        f"{"" if must_respond else self._CONTROL_MESSAGE}"
                         f"{system_message}"
                     ),
                 ),
             )
 
         return messages
-
-    async def _get_identity(self, message: discord.Message) -> db.Identity:
-        """Get the system customization for the guild the message was sent in.
-
-        Attributes
-        ----------
-        message : discord.Message
-
-        Returns
-        -------
-        _GuildCustomization
-            The customization for the guild the message was sent in or the default customization if
-            the message was not sent to a guild or the guild was not customized.
-
-        """
-        guild_id: int | None = (
-            message.channel.guild.id if hasattr(message.channel, "guild") else None
-        )
-        return await self.staff.get_identity(guild_id)
