@@ -54,9 +54,9 @@ if typing.TYPE_CHECKING:
 
     from discord import ApplicationCommand
 
-__all__ = ("ChatGPT",)
+__all__ = ("Chat",)
 
-_FEATURE = "ChatGPT"
+_FEATURE = "Chat"
 
 _log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=_FEATURE)
 
@@ -104,7 +104,7 @@ class _Tool:
     tool: ChatCompletionToolParam
 
 
-class ChatGPT(feature.Feature):
+class Chat(feature.Feature):
     """Manages chat interactions and commands in the bot."""
 
     #: An asynchronous OpenAI client.

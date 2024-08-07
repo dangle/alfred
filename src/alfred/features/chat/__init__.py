@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from alfred.features.chat.chatgpt import ChatGPT
+from alfred.features.chat.chatgpt import Chat
 
-__all__ = ("ChatGPT",)
+__all__ = ("Chat",)

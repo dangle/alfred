@@ -166,6 +166,10 @@ class Feature(discord.Cog, metaclass=FeatureMetaclass):
         """
         return getattr(cls, "__feature_name__", None) or cls.__name__
 
+    @property
+    def log(self) -> structlog.stdlib.BoundLogger:
+        return structlog.get_logger(feature=self.name, extras=self._Feature__extras)
+
 
 class FeatureRef(typing.NamedTuple):
     """A class for storing a 'Feature' with the name under which it was imported."""
