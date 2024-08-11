@@ -80,6 +80,7 @@ def _remove_locals(
 
 #: Common logging processors for both structlog and logging
 _SHARED_PROCESSORS: list[Processor] = [
+    structlog.contextvars.merge_contextvars,
     structlog.stdlib.add_log_level,
     structlog.stdlib.add_logger_name,
     structlog.processors.TimeStamper(fmt="iso"),

@@ -45,6 +45,8 @@ class Identity(typing.NamedTuple):
 class Staff(Model):
     """A bot to be deployed to Discord along with a global name and description."""
 
+    _DESC_REPR_LEN: int = 30
+
     #: A unique ID for the staff member.
     id: int = fields.BigIntField(primary_key=True)
 
@@ -76,13 +78,19 @@ class Staff(Model):
 
     def __repr__(self) -> str:
         """Return a Python representation of the 'Staff' object."""
+        desc: str = (
+            self.description
+            if len(self.description) < self._DESC_REPR_LEN
+            else f"{self.description[:self._DESC_REPR_LEN - 3]}..."
+        )
+
         return (
             f"{self.__class__.__name__}("
             f"id={self.id!r}, "
             f"load_on_start={self.load_on_start!r}, "
             f"name={self.name!r}, "
             f"nick={self.nick!r}, "
-            f"description={self.description!r}"
+            f"description={desc!r}"
             ")"
         )
 
@@ -115,7 +123,7 @@ class Feature(Model):
     #: The name of the 'Feature'.
     name: CharField = fields.CharField(primary_key=True, max_length=255)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """Return the 'Feature' name."""
         return str(self.name)
 
@@ -128,7 +136,7 @@ class Server(Model):
     #: See: https://discord.com/developers/docs/reference#snowflakes
     id: int = fields.BigIntField(primary_key=True, generated=False)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """Return a string representation of the 'Server'."""
         return str(self.id)
 

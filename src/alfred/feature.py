@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import importlib
 import inspect
 import sys
@@ -10,18 +11,26 @@ import typing
 import discord
 import discord.ext.commands
 import structlog
+from discord import Cog
+from discord.utils import MISSING
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Iterable
     from types import ModuleType
-    from typing import Any
+    from typing import Any, Concatenate
+
+    from discord import ApplicationContext
+    from discord.ext.commands import Command, Context
+    from discord.ext.commands._types import Coro
 
 
 __all__ = (
     "CommandGroup",
+    "ENTRY_POINT_GROUP",
     "Feature",
     "FeatureMetaclass",
     "FeatureRef",
+    "SlashCommand",
     "command",
     "discover_features",
     "isfeatureclass",
@@ -33,34 +42,116 @@ __all__ = (
 #: The group name that all new features must belong to in order to be discovered
 ENTRY_POINT_GROUP: str = "alfred.features"
 
-
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
-#: An alias for 'discord.Cog.listener'.
-listener = discord.Cog.listener
+
+def _get_canonical_log_wrapper[
+    CogT: Cog, **P,
+    T,
+](
+    func: (
+        Callable[Concatenate[CogT, ApplicationContext, P], Coro[T]]
+        | Callable[Concatenate[ApplicationContext, P], Coro[T]]
+    ),
+) -> Callable[..., Any]:
+    @functools.wraps(func)  # type: ignore[arg-type]
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+        extras: dict[str, Any] = {}
+        logged_args = list(args)
+
+        if args and isinstance(args[0], Feature):
+            logged_args = logged_args[1:]
+            feature = args[0]
+            extras["feature"] = feature.name()
+            extras.update(feature._Feature__extras)  # noqa: SLF001
+
+        for i, arg in enumerate(logged_args):
+            match arg:
+                case discord.Message():
+                    extras["channel_message"] = arg
+                    extras["message_author"] = {
+                        "author": arg.author.nick or arg.author.global_name or arg.author.name,
+                        "bot": arg.author.bot,
+                        "server_id": getattr(arg.author.guild, "id", None),
+                        "server": getattr(arg.author.guild, "name", None),
+                    }
+                    del logged_args[i]
+                case discord.ApplicationContext():
+                    del logged_args[i]
+
+        if logged_args:
+            extras["args"] = logged_args
+
+        with structlog.contextvars.bound_contextvars(
+            **extras,
+            **kwargs,
+        ):
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                _log.info("canonical-log-line")
+
+    return wrapper
 
 
-def command(*args: Any, **kwargs: Any) -> Callable[..., discord.ApplicationCommand]:
-    """Wrap 'discord.ext.commands.command' and add an 'is_global' attribute to created commands.
+class SlashCommand[
+    CogT: Cog, **P,
+    T,
+](discord.SlashCommand):
 
-    Returns
-    -------
-    Callable[..., discord.ApplicationCommand]
-        The 'discord.ApplicationCommand' returned by 'discord.ext.commands.command'.
-
-    """
-    is_global: bool = kwargs.pop("is_global") if "is_global" in kwargs else False
-    ac = discord.ext.commands.command(*args, **kwargs)
-    ac.is_global = is_global  # type: ignore[attr-defined]
-    return ac
+    @discord.SlashCommand.callback.setter  # type: ignore[attr-defined]
+    def callback(
+        self,
+        function: (
+            Callable[Concatenate[CogT, ApplicationContext, P], Coro[T]]
+            | Callable[Concatenate[ApplicationContext, P], Coro[T]]
+        ),
+    ) -> None:
+        discord.SlashCommand.callback.fset(  # type: ignore[attr-defined]
+            self,
+            _get_canonical_log_wrapper(function),
+        )
 
 
 class CommandGroup(discord.SlashCommandGroup):
     """A subclass of 'discord.SlashCommandGroup' that adds an 'is_global' attribute."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.is_global: bool = kwargs.pop("is_global") if "is_global" in kwargs else False
+        self.is_global: bool = kwargs.pop("is_global", False)
         super().__init__(*args, **kwargs)
+
+    def command[  # type: ignore[override]
+        T: discord.SlashCommand
+    ](self, **kwargs: Any) -> Callable[[Callable], discord.SlashCommand]:
+        return super().command(SlashCommand, **kwargs)
+
+
+def command[
+    ContextT: Context,
+    CommandT: Command,
+    CogT: Cog, **P,
+    T,
+](name: str = MISSING, **attrs: Any) -> Callable[
+    [
+        (
+            Callable[Concatenate[ContextT, P], Coro[Any]]
+            | Callable[Concatenate[CogT, ContextT, P], Coro[T]]
+        ),
+    ],
+    Command[CogT, P, T] | CommandT,
+]:
+    return discord.ext.commands.command(name, cls=SlashCommand, **attrs)  # type: ignore[arg-type]
+
+
+def listener[
+    FuncT: Callable[..., Any]
+](name: str = MISSING, *, once: bool = False) -> Callable[[FuncT], FuncT]:
+    cog_decorator = Cog.listener(name, once)
+
+    def decorator(func: FuncT) -> FuncT:
+        return cog_decorator(_get_canonical_log_wrapper(func))
+
+    return decorator
 
 
 class FeatureMetaclass(discord.CogMeta):
@@ -72,7 +163,7 @@ class FeatureMetaclass(discord.CogMeta):
         bases: tuple[type],
         classdict: dict[str, Any],
     ) -> FeatureMetaclass:
-        """Create a new metaclass that enhances 'discord.cog.CogMeta'.
+        """Create a new metaclass that enhances 'CogMeta'.
 
         Parameters
         ----------
@@ -148,8 +239,8 @@ class FeatureMetaclass(discord.CogMeta):
         return self
 
 
-class Feature(discord.Cog, metaclass=FeatureMetaclass):
-    """A 'discord.Cog' that stores the name and bot and injects 'guild_ids' into commands."""
+class Feature(Cog, metaclass=FeatureMetaclass):
+    """A 'Cog' that stores the name and bot and injects 'guild_ids' into commands."""
 
     _Feature__extras: dict[str, Any]
     intents: discord.Intents = discord.Intents.none()
@@ -166,9 +257,10 @@ class Feature(discord.Cog, metaclass=FeatureMetaclass):
         """
         return getattr(cls, "__feature_name__", None) or cls.__name__
 
-    @property
-    def log(self) -> structlog.stdlib.BoundLogger:
-        return structlog.get_logger(feature=self.name, extras=self._Feature__extras)
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(name='{self.name()!r}', extras={self._Feature__extras!r})"
+        )
 
 
 class FeatureRef(typing.NamedTuple):
