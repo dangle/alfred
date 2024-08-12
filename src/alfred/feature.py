@@ -7,6 +7,7 @@ import importlib
 import inspect
 import sys
 import typing
+import uuid
 
 import discord
 import discord.ext.commands
@@ -25,8 +26,8 @@ if typing.TYPE_CHECKING:
 
 
 __all__ = (
-    "CommandGroup",
     "ENTRY_POINT_GROUP",
+    "CommandGroup",
     "Feature",
     "FeatureMetaclass",
     "FeatureRef",
@@ -43,115 +44,6 @@ __all__ = (
 ENTRY_POINT_GROUP: str = "alfred.features"
 
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
-
-
-def _get_canonical_log_wrapper[
-    CogT: Cog, **P,
-    T,
-](
-    func: (
-        Callable[Concatenate[CogT, ApplicationContext, P], Coro[T]]
-        | Callable[Concatenate[ApplicationContext, P], Coro[T]]
-    ),
-) -> Callable[..., Any]:
-    @functools.wraps(func)  # type: ignore[arg-type]
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-        extras: dict[str, Any] = {}
-        logged_args = list(args)
-
-        if args and isinstance(args[0], Feature):
-            logged_args = logged_args[1:]
-            feature = args[0]
-            extras["feature"] = feature.name()
-            extras.update(feature._Feature__extras)  # noqa: SLF001
-
-        for i, arg in enumerate(logged_args):
-            match arg:
-                case discord.Message():
-                    extras["channel_message"] = arg
-                    extras["message_author"] = {
-                        "author": arg.author.nick or arg.author.global_name or arg.author.name,
-                        "bot": arg.author.bot,
-                        "server_id": getattr(arg.author.guild, "id", None),
-                        "server": getattr(arg.author.guild, "name", None),
-                    }
-                    del logged_args[i]
-                case discord.ApplicationContext():
-                    del logged_args[i]
-
-        if logged_args:
-            extras["args"] = logged_args
-
-        with structlog.contextvars.bound_contextvars(
-            **extras,
-            **kwargs,
-        ):
-            try:
-                return await func(*args, **kwargs)
-            finally:
-                _log.info("canonical-log-line")
-
-    return wrapper
-
-
-class SlashCommand[
-    CogT: Cog, **P,
-    T,
-](discord.SlashCommand):
-
-    @discord.SlashCommand.callback.setter  # type: ignore[attr-defined]
-    def callback(
-        self,
-        function: (
-            Callable[Concatenate[CogT, ApplicationContext, P], Coro[T]]
-            | Callable[Concatenate[ApplicationContext, P], Coro[T]]
-        ),
-    ) -> None:
-        discord.SlashCommand.callback.fset(  # type: ignore[attr-defined]
-            self,
-            _get_canonical_log_wrapper(function),
-        )
-
-
-class CommandGroup(discord.SlashCommandGroup):
-    """A subclass of 'discord.SlashCommandGroup' that adds an 'is_global' attribute."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.is_global: bool = kwargs.pop("is_global", False)
-        super().__init__(*args, **kwargs)
-
-    def command[  # type: ignore[override]
-        T: discord.SlashCommand
-    ](self, **kwargs: Any) -> Callable[[Callable], discord.SlashCommand]:
-        return super().command(SlashCommand, **kwargs)
-
-
-def command[
-    ContextT: Context,
-    CommandT: Command,
-    CogT: Cog, **P,
-    T,
-](name: str = MISSING, **attrs: Any) -> Callable[
-    [
-        (
-            Callable[Concatenate[ContextT, P], Coro[Any]]
-            | Callable[Concatenate[CogT, ContextT, P], Coro[T]]
-        ),
-    ],
-    Command[CogT, P, T] | CommandT,
-]:
-    return discord.ext.commands.command(name, cls=SlashCommand, **attrs)  # type: ignore[arg-type]
-
-
-def listener[
-    FuncT: Callable[..., Any]
-](name: str = MISSING, *, once: bool = False) -> Callable[[FuncT], FuncT]:
-    cog_decorator = Cog.listener(name, once)
-
-    def decorator(func: FuncT) -> FuncT:
-        return cog_decorator(_get_canonical_log_wrapper(func))
-
-    return decorator
 
 
 class FeatureMetaclass(discord.CogMeta):
@@ -257,7 +149,26 @@ class Feature(Cog, metaclass=FeatureMetaclass):
         """
         return getattr(cls, "__feature_name__", None) or cls.__name__
 
+    def __str__(self) -> str:
+        """Return the name of the 'Feature'.
+
+        Returns
+        -------
+        str
+            The name of the 'Feature'.
+
+        """
+        return self.name()
+
     def __repr__(self) -> str:
+        """Return a Python representation of the 'Feature'.
+
+        Returns
+        -------
+        str
+            A string of the Python representation of the 'Feature'.
+
+        """
         return (
             f"{self.__class__.__name__}(name='{self.name()!r}', extras={self._Feature__extras!r})"
         )
@@ -398,3 +309,267 @@ def get_intents(*features: type[Feature]) -> discord.Intents:
         intents = intents | feature.intents
 
     return intents
+
+
+class SlashCommand[
+    CogT: Cog, **P,
+    T,
+](discord.SlashCommand):
+    """A 'discord.SlashCommand' that adds a canonical logging wrapper to the command."""
+
+    @discord.SlashCommand.callback.setter  # type: ignore[attr-defined]
+    def callback(
+        self,
+        function: (
+            Callable[Concatenate[CogT, ApplicationContext, P], Coro[T]]
+            | Callable[Concatenate[ApplicationContext, P], Coro[T]]
+        ),
+    ) -> None:
+        """Set the callback function for the 'SlashCommand' and wrap it in a canonical logger.
+
+        Parameters
+        ----------
+        function : Callable[..., Coro[T]]
+            A command function to wrap with a canonical logger.
+
+        """
+        discord.SlashCommand.callback.fset(  # type: ignore[attr-defined]
+            self,
+            _get_canonical_log_wrapper(function, command=self.qualified_name),
+        )
+
+
+class CommandGroup(discord.SlashCommandGroup):
+    """A subclass of 'discord.SlashCommandGroup' that creates 'SlashCommand' objects."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.is_global: bool = kwargs.pop("is_global", False)
+        super().__init__(*args, **kwargs)
+
+    def command[  # type: ignore[override]
+        T: discord.SlashCommand
+    ](self, **kwargs: Any) -> Callable[[Callable], discord.SlashCommand]:
+        """_summary_.
+
+        Returns
+        -------
+        _type_
+            _description_
+
+        """
+        return super().command(SlashCommand, **kwargs)
+
+
+def command[
+    ContextT: Context,
+    CommandT: Command,
+    CogT: Cog, **P,
+    T,
+](name: str = MISSING, **attrs: Any) -> Callable[
+    [
+        (
+            Callable[Concatenate[ContextT, P], Coro[Any]]
+            | Callable[Concatenate[CogT, ContextT, P], Coro[T]]
+        ),
+    ],
+    Command[CogT, P, T] | CommandT,
+]:
+    """_summary_.
+
+    Returns
+    -------
+    _type_
+        _description_
+
+    """
+    return discord.ext.commands.command(name, cls=SlashCommand, **attrs)  # type: ignore[arg-type]
+
+
+def listener[
+    FuncT: Callable[..., Any]
+](name: str = MISSING, *, once: bool = False) -> Callable[[FuncT], FuncT]:
+    """.
+
+    Returns
+    -------
+    _type_
+        _description_
+
+    """
+    cog_decorator: Callable[[FuncT], FuncT] = Cog.listener(name, once)
+
+    def decorator(func: FuncT) -> FuncT:
+        listener_name = name if name is not MISSING else func.__name__
+        listener_func_name = func.__name__
+
+        return typing.cast(
+            FuncT,
+            cog_decorator(
+                _get_canonical_log_wrapper(
+                    func,
+                    listener={
+                        "event": listener_name,
+                        "listener": listener_func_name,
+                    },
+                ),
+            ),
+        )
+
+    return decorator
+
+
+def _get_canonical_log_wrapper[
+    CogT: Cog, **P,
+    T,
+](
+    func: (
+        Callable[Concatenate[CogT, ApplicationContext, P], Coro[T]]
+        | Callable[Concatenate[ApplicationContext, P], Coro[T]]
+    ),
+    **extras: Any,
+) -> Callable[..., Any]:
+    """Add a canonical logger to a given function.
+
+    This wrapper will extract 'Feature' and 'discord.Message' objects so that they can be displayed
+    in a useful manner in the canonical log line.
+
+    Returns
+    -------
+    Callable[..., Any]
+        Returns a wrapper function around 'func' that emits a canonical log line once the function
+        has completed.
+
+    """
+
+    @functools.wraps(func)  # type: ignore[arg-type]
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+        logged_args: dict[int, Any] = dict(enumerate(args))
+
+        if "trace_id" not in structlog.contextvars.get_merged_contextvars(_log):
+            extras["trace_id"] = str(uuid.uuid4())
+
+        for i, arg in enumerate(args):
+            match arg:
+                case Feature():
+                    extras["feature"] = arg.name()
+                    extras.update(
+                        {
+                            k: v.log_object() if hasattr(v, "log_object") else v
+                            for k, v in arg._Feature__extras.items()  # noqa: SLF001
+                        },
+                    )
+                case discord.Message():
+                    extras["channel_message"] = _get_message_dict(arg)
+                case discord.ApplicationContext():
+                    pass
+                case _:
+                    continue
+            del logged_args[i]
+
+        if logged_args:
+            extras["args"] = list(logged_args.values())
+
+        with structlog.contextvars.bound_contextvars(
+            **extras,
+            **kwargs,
+        ):
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                _log.info("canonical-log-line")
+
+    return wrapper
+
+
+def _get_message_dict(message: discord.Message) -> dict[str, Any]:
+    """Get a dict object from a 'discord.Message' to use in logging.
+
+    Parameters
+    ----------
+    message : discord.Message
+        A 'discord.Message' object to be logged.
+
+    Returns
+    -------
+    dict[str, Any]
+        A dict representation of a 'discord.Message' to use in logging.
+
+    """
+    loggable: dict[str, Any] = {
+        "id": message.id,
+        "author": {
+            "name": message.author.name,
+            "bot": message.author.bot,
+        },
+        "channel": {
+            "id": message.channel.id,
+        },
+    }
+
+    match channel := message.channel:
+        case discord.TextChannel(guild=discord.Guild()):
+            loggable["channel"].update(
+                {
+                    "server": {
+                        "id": channel.guild.id,
+                        "name": channel.guild.name,
+                    },
+                    "nsfw": channel.nsfw,
+                    "news": channel.news,
+                    "type": "text",
+                },
+            )
+        case discord.Thread():
+            loggable["channel"].update(
+                {
+                    "parent_id": channel.parent_id,
+                    "server": {
+                        "id": channel.guild.id,
+                        "name": channel.guild.name,
+                    },
+                    "type": "thread",
+                },
+            )
+
+            if (
+                parent_channel := next(
+                    (
+                        typing.cast(discord.TextChannel, c)
+                        for c in channel.guild.channels
+                        if c.id == channel.parent_id
+                    ),
+                    None,
+                )
+            ) is not None:
+                loggable["channel"].update(
+                    {
+                        "nsfw": parent_channel.nsfw,
+                        "news": parent_channel.news,
+                    },
+                )
+        case discord.DMChannel(recipient=discord.User()) if isinstance(
+            channel.recipient,
+            discord.User,
+        ):
+            loggable["channel"].update(
+                {
+                    "type": "dm",
+                    "recipients": [
+                        {
+                            "id": channel.recipient.id,
+                            "name": channel.recipient.name,
+                        },
+                    ],
+                },
+            )
+        case discord.DMChannel(recipient=None):
+            loggable["channel"]["type"] = "dm"
+        case discord.GroupChannel():
+            loggable["channel"].update(
+                {
+                    "type": "group",
+                    "recipients": [{"id": r.id, "name": r.name} for r in channel.recipients],
+                },
+            )
+
+    return loggable

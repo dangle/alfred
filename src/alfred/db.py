@@ -8,12 +8,15 @@ from tortoise import fields
 from tortoise.models import Model
 
 if typing.TYPE_CHECKING:
+    from typing import Any
+
     from tortoise.fields import (
         BooleanField,
         CharField,
         ForeignKeyRelation,
         ManyToManyRelation,
         TextField,
+        UUIDField,
     )
 
 __all__ = (
@@ -23,6 +26,8 @@ __all__ = (
     "Server",
     "ServerAlias",
 )
+
+_DESC_REPR_LEN: int = 50
 
 
 class Identity(typing.NamedTuple):
@@ -45,10 +50,8 @@ class Identity(typing.NamedTuple):
 class Staff(Model):
     """A bot to be deployed to Discord along with a global name and description."""
 
-    _DESC_REPR_LEN: int = 30
-
     #: A unique ID for the staff member.
-    id: int = fields.BigIntField(primary_key=True)
+    id: UUIDField = fields.UUIDField(primary_key=True)
 
     #: The Discord token this bot will use to connect to Discord.
     discord_token: CharField = fields.CharField(max_length=100, unique=True)
@@ -80,19 +83,35 @@ class Staff(Model):
         """Return a Python representation of the 'Staff' object."""
         desc: str = (
             self.description
-            if len(self.description) < self._DESC_REPR_LEN
-            else f"{self.description[:self._DESC_REPR_LEN - 3]}..."
+            if len(self.description) < _DESC_REPR_LEN
+            else f"{self.description[:_DESC_REPR_LEN - 3]}..."
         )
 
         return (
             f"{self.__class__.__name__}("
-            f"id={self.id!r}, "
+            f"id='{self.id}', "
             f"load_on_start={self.load_on_start!r}, "
             f"name={self.name!r}, "
             f"nick={self.nick!r}, "
             f"description={desc!r}"
             ")"
         )
+
+    def log_object(self) -> dict[str, Any]:
+        """Get an dict representation to use in logging."""
+        desc: str = (
+            self.description
+            if len(self.description) < _DESC_REPR_LEN
+            else f"{self.description[:_DESC_REPR_LEN - 3]}..."
+        )
+
+        return {
+            "id": str(self.id),
+            "load_on_start": self.load_on_start,
+            "name": self.name,
+            "nick": self.nick,
+            "description": desc,
+        }
 
     async def get_identity(self, server_id: int | None = None) -> Identity:
         """Get the 'Identity' the bot will use on the given 'server_id'.
@@ -149,7 +168,7 @@ class ServerAlias(Model):
     """
 
     #: A unique ID representing the mapping.
-    id: int = fields.BigIntField(primary_key=True)
+    id: UUIDField = fields.UUIDField(primary_key=True)
 
     #: The 'Staff' object using the alias.
     staff: ForeignKeyRelation = fields.ForeignKeyField("models.Staff", related_name="aliases")
@@ -179,11 +198,32 @@ class ServerAlias(Model):
 
     def __repr__(self) -> str:
         """Return a Python representation of the 'ServerAlias' object."""
+        desc: str = (
+            self.description
+            if len(self.description) < _DESC_REPR_LEN
+            else f"{self.description[:_DESC_REPR_LEN - 3]}..."
+        )
+
         return (
             f"{self.__class__.__name__}("
             f"id={self.id!r}, "
             f"name={self.name!r}, "
             f"nick={self.nick!r}, "
-            f"description={self.description!r}"
+            f"description={desc!r}"
             ")"
         )
+
+    def log_object(self) -> dict[str, Any]:
+        """Get an dict representation to use in logging."""
+        desc: str = (
+            self.description
+            if len(self.description) < _DESC_REPR_LEN
+            else f"{self.description[:_DESC_REPR_LEN - 3]}..."
+        )
+
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "nick": self.nick,
+            "description": desc,
+        }

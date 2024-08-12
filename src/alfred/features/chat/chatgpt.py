@@ -184,7 +184,7 @@ class Chat(feature.Feature):
         for command in self.bot.application_commands:
             await self.add_tool(command)
 
-        await _log.ainfo("Tools for the chat service.", tools=list(self._tools))
+        structlog.contextvars.bind_contextvars(tools=list(self._tools))
 
     async def add_tool(
         self,
@@ -204,6 +204,7 @@ class Chat(feature.Feature):
         if isinstance(command, discord.SlashCommandGroup):
             for cmd in command.walk_commands():
                 await self.add_tool(cmd)
+
             return
 
         try:
@@ -671,11 +672,12 @@ class Chat(feature.Feature):
 
         ai = cast(openai.AsyncOpenAI, self.ai)
         response: ChatCompletion = await ai.chat.completions.create(**kwargs)
-        await _log.ainfo(
-            "Chat service usage.",
-            usage=response.usage,
+
+        structlog.contextvars.bind_contextvars(
+            chat_usage=response.usage,
             history_length=len(self._history),
         )
+
         return response
 
     async def _get_chat_context(
