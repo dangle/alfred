@@ -73,7 +73,8 @@ def _remove_locals(
     """
     for exception in event_dict.get("exception", {}):
         for frame in exception["frames"]:
-            del frame["locals"]
+            if hasattr(frame, "locals"):
+                del frame["locals"]
 
     return event_dict
 

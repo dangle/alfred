@@ -38,6 +38,38 @@ class Bot(discord.Bot):
 
         super().__init__(**kwargs)
 
+    def __repr__(self) -> str:
+        """Get a Python representation of this object.
+
+        Returns
+        -------
+        str
+            A Python representation of this object.
+
+        """
+        return (
+            f"Bot("
+            f"owner_ids={(self.owner_ids or {self.owner_id})!r}, "
+            f"presence={self.current_presence!r}, "
+            f"is_ready={self.is_ready()!r}"
+            ")"
+        )
+
+    def log_object(self) -> dict[str, Any]:
+        """Get a dict to use when logging this object..
+
+        Returns
+        -------
+        dict[str, Any]
+            A dictionary representation of this object to be used when logging.
+
+        """
+        return {
+            "owner_ids": list(self.owner_ids) or [self.owner_id],
+            "presence": self.current_presence,
+            "is_ready": self.is_ready(),
+        }
+
     @property
     def activities(self) -> set[discord.BaseActivity]:
         """Return a set containing all active bot activities.
@@ -168,3 +200,32 @@ class Bot(discord.Bot):
             await _log.aexception(f"Ignoring exception in {event_method}.", *args, **kwargs)
         except Exception:
             await _log.aexception(f"Ignoring exception in {event_method}.")
+
+    async def on_application_command_error(
+        self,
+        context: discord.ApplicationContext,
+        exception: discord.DiscordException,
+    ) -> None:
+        """Log any unhandled application command errors.
+
+        Parameters
+        ----------
+        context : discord.ApplicationContext
+            The context for the current command.
+        exception : discord.DiscordException
+            The exception raised from the application command.
+
+        """
+        if self._event_handlers.get("on_application_command_error", None):
+            return
+
+        if (command := context.command) and command.has_error_handler():
+            return
+
+        if (cog := context.cog) and cog.has_error_handler():
+            return
+
+        await _log.aerror(
+            "An exception occurred while running an application command.",
+            exc_info=exception,
+        )

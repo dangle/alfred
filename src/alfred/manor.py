@@ -366,4 +366,4 @@ def _handle_exception(_: asyncio.AbstractEventLoop, context: dict[str, Any]) -> 
         The asyncio exception context containing information related to the cause of the exception.
 
     """
-    _log.exception(context.message, exc_info=context.get("exception", True))
+    _log.exception(context["message"], exc_info=context.get("exception", True))
