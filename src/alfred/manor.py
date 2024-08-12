@@ -31,19 +31,19 @@ __all__ = ("Manor",)
 
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
-#: Something
+#: Database URL for an in-memory SQLite3 database.
 _IN_MEMORY_DB_URL: str = "sqlite://:memory:"
 
-#: Something
+#: Default namespace for program configuration settings.
 _ALFRED_NAMESPACE: str = "alfred"
 
-#: Something
+#: Default namespace for database settings for the program.
 _DB_NAMESPACE: str = f"{_ALFRED_NAMESPACE}.db"
 
-#: Something
+#: Default namespace for Discord settings for the program.
 _DISCORD_NAMESPACE: str = f"{_ALFRED_NAMESPACE}.discord"
 
-#: Something
+#: Default name to which an ephemeral bot will respond.
 _DEFAULT_NAME: str = _("Alfred")
 
 #: Default description
@@ -186,6 +186,8 @@ class Manor:
             raise exc.BotError("Manor is already started.")
 
         await _log.ainfo("Starting 'Manor'.")
+
+        asyncio.get_event_loop().set_exception_handler(_handle_exception)
 
         self._start_event.set()
         feature_modules = (ref.imported_module_name for ref in self._features.values())
@@ -351,3 +353,17 @@ class Manor:
             async for staff in db.Staff.all():
                 if staff.load_on_start:
                     await self.deploy(staff.id)
+
+
+def _handle_exception(_: asyncio.AbstractEventLoop, context: dict[str, Any]) -> None:
+    """Log any uncaught exceptions in the loop.
+
+    Parameters
+    ----------
+    _ : asyncio.AbstractEventLoop
+        The loop in which the exception was raised.
+    context : dict[str, Any]
+        The asyncio exception context containing information related to the cause of the exception.
+
+    """
+    _log.exception(context.message, exc_info=context.get("exception", True))

@@ -151,22 +151,20 @@ class Bot(discord.Bot):
         """
         return user.nick if hasattr(user, "nick") and user.nick else user.display_name
 
-    async def on_application_command_error(
-        self,
-        _: discord.ApplicationContext,
-        exception: discord.DiscordException,
-    ) -> None:
-        """Catch all application command errors and log them.
+    async def on_error(self, event_method: str, *args: Any, **kwargs: Any) -> None:
+        """Log any unhandled errors.
 
         Parameters
         ----------
-        _ : discord.ApplicationContext
-            The context for the current command.
-        exception : discord.DiscordException
-            The exception raised from the application command.
+        event_method : str
+            The name of the event that raised the exception.
+        args : tuple[Any, ...]
+            Positional arguments sent to 'event_method'.
+        kwargs : dict[str, Any]
+            Keyword arguments sent to 'event_method'.
 
         """
-        await _log.aerror(
-            "An exception occurred while running an application command.",
-            exc_info=exception,
-        )
+        try:
+            await _log.aexception(f"Ignoring exception in {event_method}.", *args, **kwargs)
+        except Exception:
+            await _log.aexception(f"Ignoring exception in {event_method}.")
