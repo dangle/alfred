@@ -422,7 +422,7 @@ class Config(metaclass=_ConfigMetaclass):
         return __version__
 
     def _process_env(self) -> None:
-        """Something."""
+        """Process environment variables."""
         dotenv.load_dotenv()
 
         for attr in self._registry.values():
