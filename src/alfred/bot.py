@@ -131,7 +131,7 @@ class Bot(discord.Bot):
             async with self._presences() as presences:
                 presences[uid] = presence
 
-        await _log.ainfo("Setting bot presence.", presence=presence)
+        structlog.contextvars.bind_contextvars(presence=presence)
         await self._bot.change_presence(**presence._asdict())
 
         try:
@@ -141,7 +141,7 @@ class Bot(discord.Bot):
                 async with self._presences() as presences:
                     del presences[uid]
 
-            await _log.ainfo("Setting presence.", presence=self.current_presence)
+            structlog.contextvars.bind_contextvars(presence=self.current_presence)
             await self._bot.change_presence(**self.current_presence._asdict())
 
     @contextlib.asynccontextmanager
