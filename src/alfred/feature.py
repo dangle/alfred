@@ -349,12 +349,12 @@ class CommandGroup(discord.SlashCommandGroup):
     def command[  # type: ignore[override]
         T: discord.SlashCommand
     ](self, **kwargs: Any) -> Callable[[Callable], discord.SlashCommand]:
-        """_summary_.
+        """Create a new subgroup command from the given function.
 
         Returns
         -------
-        _type_
-            _description_
+        Callable[[Callable], discord.SlashCommand]
+            A decorator that will convert a function into a subcommand of this group.
 
         """
         return super().command(SlashCommand, **kwargs)
@@ -374,12 +374,12 @@ def command[
     ],
     Command[CogT, P, T] | CommandT,
 ]:
-    """_summary_.
+    """Create a new slash command from the given function.
 
     Returns
     -------
-    _type_
-        _description_
+    Callable[..., Callable[..., Any]]
+        A decorator that will convert the given function into a SlashCommand.
 
     """
     return discord.ext.commands.command(name, cls=SlashCommand, **attrs)  # type: ignore[arg-type]
@@ -388,12 +388,12 @@ def command[
 def listener[
     FuncT: Callable[..., Any]
 ](name: str = MISSING, *, once: bool = False) -> Callable[[FuncT], FuncT]:
-    """.
+    """Create a new listener from the given function.
 
     Returns
     -------
-    _type_
-        _description_
+    Callable[[FuncT], FuncT]
+        A decorator that will convert the given function into a new listener with canonical logging.
 
     """
     cog_decorator: Callable[[FuncT], FuncT] = Cog.listener(name, once)
