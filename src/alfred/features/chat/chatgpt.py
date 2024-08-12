@@ -674,7 +674,15 @@ class Chat(feature.Feature):
         response: ChatCompletion = await ai.chat.completions.create(**kwargs)
 
         structlog.contextvars.bind_contextvars(
-            chat_usage=response.usage,
+            chat_usage=(
+                {
+                    "completion_tokens": response.usage.completion_tokens,
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+                if response.usage
+                else None
+            ),
             history_length=len(self._history),
         )
 
