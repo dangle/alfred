@@ -1,6 +1,6 @@
 [project]
 name = "alfred"
-version = "v2024.07.3"
+version = "v2024.08.0"
 description = "Default template for PDM package"
 authors = [{ name = "Melissa Nuño", email = "melissa@dangle.dev" }]
 requires-python = ">=3.12"
