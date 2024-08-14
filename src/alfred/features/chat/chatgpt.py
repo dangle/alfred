@@ -56,13 +56,13 @@ if typing.TYPE_CHECKING:
 
 __all__ = ("Chat",)
 
-_FEATURE = "Chat"
-
-_log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=_FEATURE)
+_log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
+
 _THINKING = discord.CustomActivity(_("Thinking"))
 
+#: The maximum length of a Discord message.
 _MAX_REPLY_LEN: int = 2000
 
 
