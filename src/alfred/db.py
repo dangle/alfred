@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import abc
 import typing
 
 from tortoise import fields
-from tortoise.models import Model
+from tortoise.models import Model, ModelMeta
+
+from alfred.logging import Canonical
 
 if typing.TYPE_CHECKING:
     from typing import Any
@@ -29,6 +32,17 @@ __all__ = (
 
 _DESC_REPR_LEN: int = 50
 
+#: Necessary to make features usable with protocols.
+_ProtocolMeta: type = abc.ABCMeta if typing.TYPE_CHECKING else type(typing.Protocol)
+
+
+class _ProtocolModelMeta(ModelMeta, _ProtocolMeta):
+    """A metaclass to allow 'Model' objects to be used with protocols."""
+
+
+class _ProtocolModel(Model, metaclass=_ProtocolModelMeta):
+    """A base class for 'Model' objects that allows them to be used alongside protocols."""
+
 
 class Identity(typing.NamedTuple):
     """A name, nick, and description of a staff member."""
@@ -47,7 +61,7 @@ class Identity(typing.NamedTuple):
         return str(self.nick or self.name)[:32]
 
 
-class Staff(Model):
+class Staff(_ProtocolModel, Canonical):
     """A bot to be deployed to Discord along with a global name and description."""
 
     #: A unique ID for the staff member.
@@ -97,8 +111,9 @@ class Staff(Model):
             ")"
         )
 
-    def log_object(self) -> dict[str, Any]:
-        """Get an dict representation to use in logging."""
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
         desc: str = (
             self.description
             if len(self.description) < _DESC_REPR_LEN
@@ -160,7 +175,7 @@ class Server(Model):
         return str(self.id)
 
 
-class ServerAlias(Model):
+class ServerAlias(_ProtocolModel, Canonical):
     """A mapping of 'Staff' and 'Server' that contains information for a custom 'Identity'.
 
     'ServerAlias' stores the data for a custom, non-default, 'Identity' that can be configured for
@@ -213,8 +228,9 @@ class ServerAlias(Model):
             ")"
         )
 
-    def log_object(self) -> dict[str, Any]:
-        """Get an dict representation to use in logging."""
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
         desc: str = (
             self.description
             if len(self.description) < _DESC_REPR_LEN

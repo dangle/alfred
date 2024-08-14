@@ -14,6 +14,7 @@ from alfred import bot as bot_
 from alfred import db
 from alfred import exceptions as exc
 from alfred import feature, fields
+from alfred.logging import Canonical
 from alfred.translation import gettext as _
 
 if typing.TYPE_CHECKING:
@@ -76,7 +77,7 @@ def _csv(value: ConfigValue) -> list[str]:
     return [v.strip() for v in value.split(",")] if isinstance(value, str) else value
 
 
-class Manor:
+class Manor(Canonical):
     """A class for creating and managing staff members (aka Discord bots).
 
     Parameters
@@ -164,8 +165,9 @@ class Manor:
             ")"
         )
 
-    def log_object(self) -> dict[str, Any]:
-        """Get a loggable dictionary representation of the 'Manor'."""
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
         return {
             "running": self.is_running,
             "deployed_staff": len(self._deployed_staff),

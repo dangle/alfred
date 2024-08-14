@@ -63,6 +63,8 @@ _log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=_FEATURE)
 _WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
 _THINKING = discord.CustomActivity(_("Thinking"))
 
+_MAX_REPLY_LEN: int = 2000
+
 
 class _ChatGPTModels(enum.StrEnum):
     """Valid ChatGPT models."""
@@ -373,7 +375,11 @@ class Chat(feature.Feature):
                     case _ResponseType.ToolCall:
                         pass
                     case _:
-                        await message.reply(response)
+                        for chunk in (
+                            response[i : i + _MAX_REPLY_LEN]
+                            for i in range(0, len(response), _MAX_REPLY_LEN)
+                        ):
+                            await message.reply(chunk)
 
             if must_respond:
                 self.bot.dispatch("waiting_for_corrections")

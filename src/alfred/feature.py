@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import functools
+import abc
 import importlib
 import inspect
 import sys
 import typing
-import uuid
 
 import discord
 import discord.ext.commands
@@ -15,7 +14,10 @@ import structlog
 from discord import Cog
 from discord.utils import MISSING
 
+from alfred.logging import Canonical, canonical_event, register_canonical_type
+
 if typing.TYPE_CHECKING:
+    import abc
     from collections.abc import Callable, Iterable
     from types import ModuleType
     from typing import Any, Concatenate
@@ -45,8 +47,11 @@ ENTRY_POINT_GROUP: str = "alfred.features"
 
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
+#: Necessary to make features usable with protocols.
+_ProtocolMeta: type = abc.ABCMeta if typing.TYPE_CHECKING else type(typing.Protocol)
 
-class FeatureMetaclass(discord.CogMeta):
+
+class FeatureMetaclass(discord.CogMeta, _ProtocolMeta, abc.ABCMeta):
     """A metaclass that adds stores the feature name, bot, and guild_ids on a class."""
 
     def __new__(
@@ -82,7 +87,7 @@ class FeatureMetaclass(discord.CogMeta):
         return typing.cast(FeatureMetaclass, cls)
 
     def __call__(
-        cls,  # noqa: N805
+        cls,
         *args: Any,
         **kwargs: Any,
     ) -> Feature:
@@ -131,7 +136,7 @@ class FeatureMetaclass(discord.CogMeta):
         return self
 
 
-class Feature(Cog, metaclass=FeatureMetaclass):
+class Feature(Cog, Canonical, metaclass=FeatureMetaclass):
     """A 'Cog' that stores the name and bot and injects 'guild_ids' into commands."""
 
     _Feature__extras: dict[str, Any]
@@ -172,6 +177,20 @@ class Feature(Cog, metaclass=FeatureMetaclass):
         return (
             f"{self.__class__.__name__}(name='{self.name()!r}', extras={self._Feature__extras!r})"
         )
+
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
+        loggable: dict[str, Any] = {
+            "feature": self.name(),
+        }
+        loggable.update(
+            {
+                k: (v.__canonical__ if isinstance(v, Canonical) else v)
+                for k, v in self._Feature__extras.items()
+            },
+        )
+        return loggable
 
 
 class FeatureRef(typing.NamedTuple):
@@ -335,7 +354,7 @@ class SlashCommand[
         """
         discord.SlashCommand.callback.fset(  # type: ignore[attr-defined]
             self,
-            _get_canonical_log_wrapper(function, command=self.qualified_name),
+            canonical_event(function, command=self.qualified_name),
         )
 
 
@@ -405,7 +424,7 @@ def listener[
         return typing.cast(
             FuncT,
             cog_decorator(
-                _get_canonical_log_wrapper(
+                canonical_event(
                     func,
                     listener={
                         "event": listener_name,
@@ -418,70 +437,7 @@ def listener[
     return decorator
 
 
-def _get_canonical_log_wrapper[
-    CogT: Cog, **P,
-    T,
-](
-    func: (
-        Callable[Concatenate[CogT, ApplicationContext, P], Coro[T]]
-        | Callable[Concatenate[ApplicationContext, P], Coro[T]]
-    ),
-    **extras: Any,
-) -> Callable[..., Any]:
-    """Add a canonical logger to a given function.
-
-    This wrapper will extract 'Feature' and 'discord.Message' objects so that they can be displayed
-    in a useful manner in the canonical log line.
-
-    Returns
-    -------
-    Callable[..., Any]
-        Returns a wrapper function around 'func' that emits a canonical log line once the function
-        has completed.
-
-    """
-
-    @functools.wraps(func)  # type: ignore[arg-type]
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-        logged_args: dict[int, Any] = dict(enumerate(args))
-
-        if "trace_id" not in structlog.contextvars.get_merged_contextvars(_log):
-            extras["trace_id"] = str(uuid.uuid4())
-
-        for i, arg in enumerate(args):
-            match arg:
-                case Feature():
-                    extras["feature"] = arg.name()
-                    extras.update(
-                        {
-                            k: v.log_object() if hasattr(v, "log_object") else v
-                            for k, v in arg._Feature__extras.items()  # noqa: SLF001
-                        },
-                    )
-                case discord.Message():
-                    extras["channel_message"] = _get_message_dict(arg)
-                case discord.ApplicationContext():
-                    pass
-                case _:
-                    continue
-            del logged_args[i]
-
-        if logged_args:
-            extras["args"] = list(logged_args.values())
-
-        with structlog.contextvars.bound_contextvars(
-            **extras,
-            **kwargs,
-        ):
-            try:
-                return await func(*args, **kwargs)
-            finally:
-                _log.info("canonical-log-line")
-
-    return wrapper
-
-
-def _get_message_dict(message: discord.Message) -> dict[str, Any]:
+def _get_canonical_message(message: discord.Message) -> dict[str, Any]:
     """Get a dict object from a 'discord.Message' to use in logging.
 
     Parameters
@@ -572,4 +528,8 @@ def _get_message_dict(message: discord.Message) -> dict[str, Any]:
                 },
             )
 
-    return loggable
+    return {"channel_message": loggable}
+
+
+register_canonical_type(discord.Message, _get_canonical_message)
+register_canonical_type(discord.ApplicationContext, lambda _: {})

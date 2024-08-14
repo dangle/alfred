@@ -11,6 +11,7 @@ import typing
 import discord
 import structlog
 
+from alfred.logging import Canonical
 from alfred.typing import Presence
 
 if typing.TYPE_CHECKING:
@@ -22,7 +23,7 @@ __all__ = ("Bot",)
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
-class Bot(discord.Bot):
+class Bot(discord.Bot, Canonical):
     """The main 'Bot' class used to deploy 'Staff' to Discord servers.
 
     Parameters
@@ -55,15 +56,9 @@ class Bot(discord.Bot):
             ")"
         )
 
-    def log_object(self) -> dict[str, Any]:
-        """Get a dict to use when logging this object..
-
-        Returns
-        -------
-        dict[str, Any]
-            A dictionary representation of this object to be used when logging.
-
-        """
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
         return {
             "owner_ids": list(self.owner_ids) or [self.owner_id],
             "presence": self.current_presence,

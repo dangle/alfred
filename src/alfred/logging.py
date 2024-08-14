@@ -3,22 +3,140 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import logging
 import os
 import typing
+import uuid
+from abc import abstractmethod
 
 import structlog
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
     from typing import Any
 
     from structlog.typing import EventDict, Processor, ProcessorReturnValue, WrappedLogger
 
 __all__ = (
+    "Canonical",
+    "canonical",
     "configure_logging",
     "delay_logging",
+    "register_canonical_type",
 )
+
+_canonical_registry: dict[type, Callable[[Any], dict[str, Any]]] = {}
+
+
+@typing.runtime_checkable
+class Canonical(typing.Protocol):
+    """A protocol that allows events to log a canonical form of any objects that implement it."""
+
+    @property
+    @abstractmethod
+    def __canonical__(self) -> dict[str, Any]:
+        """Get a dict to use when logging this object..
+
+        Returns
+        -------
+        dict[str, Any]
+            A dictionary representation of this object to be used when logging.
+
+        """
+
+
+def canonical(obj: Canonical) -> dict[str, Any]:
+    """Get the canonical dict of an object.
+
+    Parameters
+    ----------
+    obj : Canonical
+        The object of which to get the canonical dictionary.
+
+    Returns
+    -------
+    dict[str, Any]
+        The canonical dictionary of the object.
+
+    Raises
+    ------
+    TypeError
+        Raised if 'obj' does not implement the 'Canonical' protocol.
+
+    """
+    cls: type = type(obj)
+
+    if hasattr(cls, "__canonical__"):
+        return obj.__canonical__
+
+    if cls in _canonical_registry:
+        return _canonical_registry[cls](obj)
+
+    for registered_cls, func in _canonical_registry.items():
+        if issubclass(cls, registered_cls):
+            return func(obj)
+
+    raise TypeError(f"Expected an object implementing 'Canonical' protocol; got type '{cls}'")
+
+
+def register_canonical_type(cls: type, func: Callable[[Any], dict[str, Any]]) -> None:
+    """Register a virtual subclass of 'Canonical' with a method for getting the canonical dict.
+
+    Parameters
+    ----------
+    cls : type
+        The class to register as a virtual subclass of 'Canonical'.
+    func : Callable[[Any], dict[str, Any]]
+        The function that 'canonical' will call when converting this type to a dict.
+
+    """
+    Canonical.register(cls)
+    _canonical_registry[cls] = func
+
+
+register_canonical_type(dict, lambda x: x)
+
+
+def canonical_event(func: Callable[..., Any], **extras: Any) -> Callable[..., Any]:
+    """Add a canonical logger to a given function.
+
+    This wrapper will extract 'Feature' and 'discord.Message' objects so that they can be displayed
+    in a useful manner in the canonical log line.
+
+    Returns
+    -------
+    Callable[..., Any]
+        Returns a wrapper function around 'func' that emits a canonical log line once the function
+        has completed.
+
+    """
+
+    @functools.wraps(func)
+    async def wrapper[**P](*args: P.args, **kwargs: P.kwargs) -> Any:
+        logged_args: dict[int, Any] = dict(enumerate(args))
+
+        if "trace_id" not in structlog.contextvars.get_contextvars():
+            extras["trace_id"] = str(uuid.uuid4())
+
+        for i, arg in enumerate(args):
+            if isinstance(arg, Canonical):
+                extras.update(canonical(arg))
+                del logged_args[i]
+
+        if logged_args:
+            extras["args"] = list(logged_args.values())
+
+        with structlog.contextvars.bound_contextvars(
+            **extras,
+            **kwargs,
+        ):
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                structlog.get_logger().info("canonical-log-line")
+
+    return wrapper
 
 
 def _rename_event_key(
@@ -203,7 +321,7 @@ class LogCapture:
 
 @contextlib.contextmanager
 def delay_logging() -> Generator[None, None, None]:
-    """Caputre all logs and log them out when the context manager exits."""
+    """Capture all logs and log them out when the context manager exits."""
     processors: list[Processor] = structlog.get_config()["processors"].copy()
     min_level: int = logging.getLogger().level
 
@@ -220,6 +338,7 @@ def delay_logging() -> Generator[None, None, None]:
         if not is_exiting:
             configure_logging(min_level)
             logger = structlog.get_logger().bind()._logger  # noqa: SLF001
+
             for ed in capture.entries:
                 level_name: str = ed[0][0]["level"]
                 getattr(logger, level_name)(*ed[0], **ed[1])
