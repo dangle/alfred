@@ -1,6 +1,6 @@
 """Contains the management interface for staff members."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import asyncio
 import typing
@@ -9,13 +9,18 @@ import warnings
 import structlog
 from tortoise import Tortoise, transactions
 
-from alfred import api, db, feature, fields
+from alfred import api
 from alfred import bot as bot_
+from alfred import db
 from alfred import exceptions as exc
+from alfred import feature, fields
+from alfred.logging import Canonical
 from alfred.translation import gettext as _
 
 if typing.TYPE_CHECKING:
+    import uuid
     from pathlib import Path
+    from typing import Any
 
     from discord import Intents
 
@@ -27,19 +32,19 @@ __all__ = ("Manor",)
 
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
-#: Something
+#: Database URL for an in-memory SQLite3 database.
 _IN_MEMORY_DB_URL: str = "sqlite://:memory:"
 
-#: Something
+#: Default namespace for program configuration settings.
 _ALFRED_NAMESPACE: str = "alfred"
 
-#: Something
+#: Default namespace for database settings for the program.
 _DB_NAMESPACE: str = f"{_ALFRED_NAMESPACE}.db"
 
-#: Something
+#: Default namespace for Discord settings for the program.
 _DISCORD_NAMESPACE: str = f"{_ALFRED_NAMESPACE}.discord"
 
-#: Something
+#: Default name to which an ephemeral bot will respond.
 _DEFAULT_NAME: str = _("Alfred")
 
 #: Default description
@@ -72,7 +77,7 @@ def _csv(value: ConfigValue) -> list[str]:
     return [v.strip() for v in value.split(",")] if isinstance(value, str) else value
 
 
-class Manor:
+class Manor(Canonical):
     """A class for creating and managing staff members (aka Discord bots).
 
     Parameters
@@ -146,8 +151,29 @@ class Manor:
         self._start_event = asyncio.Event()
         self._stop_event = asyncio.Event()
         self._api_task: asyncio.Task | None = None
-        self._deployed_staff: dict[int, asyncio.Task] = {}
+        self._deployed_staff: dict[str | uuid.UUID, asyncio.Task] = {}
         self._deployed_staff_lock: asyncio.Lock = asyncio.Lock()
+
+    def __repr__(self) -> str:
+        """Get a Python representation of the 'Manor'."""
+        return (
+            "Manor("
+            f"running={self.is_running} "
+            f"deployed_staff={len(self._deployed_staff)!r} "
+            f"api={bool(self._api_task)!r} "
+            f"ephemeral={self.ephemeral!r}"
+            ")"
+        )
+
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
+        return {
+            "running": self.is_running,
+            "deployed_staff": len(self._deployed_staff),
+            "api": bool(self._api_task),
+            "ephemeral": self.ephemeral,
+        }
 
     async def start(self) -> None:
         """Start the 'Manor', create the API, and initialize the database.
@@ -162,6 +188,8 @@ class Manor:
             raise exc.BotError("Manor is already started.")
 
         await _log.ainfo("Starting 'Manor'.")
+
+        asyncio.get_event_loop().set_exception_handler(_handle_exception)
 
         self._start_event.set()
         feature_modules = (ref.imported_module_name for ref in self._features.values())
@@ -213,7 +241,7 @@ class Manor:
         """Return True if this 'Manor' is using an in-memory database."""
         return self._ephemeral
 
-    async def deploy(self, staff_id: int) -> None:
+    async def deploy(self, staff_id: uuid.UUID | str) -> None:
         """Deploy the staff member with the given ID.
 
         This creates a new asynchronous task containing running a Discord bot running as the
@@ -257,7 +285,7 @@ class Manor:
             await _log.ainfo(f"Deploying {staff!r}")
             self._deployed_staff[staff_id] = asyncio.create_task(runner())
 
-    async def recall(self, staff_id: int) -> None:
+    async def recall(self, staff_id: uuid.UUID | str) -> None:
         """Stop a staff member and remove them from the deployed staff roster.
 
         Parameters
@@ -315,7 +343,7 @@ class Manor:
             description=self.ephemeral_description.format(
                 name=self.ephemeral_name,
                 nick=self.ephemeral_nick,
-            ),
+            ).strip(),
         )
         await staff.features.add(*features)
 
@@ -327,3 +355,17 @@ class Manor:
             async for staff in db.Staff.all():
                 if staff.load_on_start:
                     await self.deploy(staff.id)
+
+
+def _handle_exception(_: asyncio.AbstractEventLoop, context: dict[str, Any]) -> None:
+    """Log any uncaught exceptions in the loop.
+
+    Parameters
+    ----------
+    _ : asyncio.AbstractEventLoop
+        The loop in which the exception was raised.
+    context : dict[str, Any]
+        The asyncio exception context containing information related to the cause of the exception.
+
+    """
+    _log.exception(context["message"], exc_info=context.get("exception", True))

@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
+import abc
 import typing
 
 from tortoise import fields
-from tortoise.models import Model
+from tortoise.models import Model, ModelMeta
+
+from alfred.logging import Canonical
 
 if typing.TYPE_CHECKING:
+    from typing import Any
+
     from tortoise.fields import (
         BooleanField,
         CharField,
         ForeignKeyRelation,
         ManyToManyRelation,
         TextField,
+        UUIDField,
     )
 
 __all__ = (
@@ -23,6 +29,19 @@ __all__ = (
     "Server",
     "ServerAlias",
 )
+
+_DESC_REPR_LEN: int = 50
+
+#: Necessary to make features usable with protocols.
+_ProtocolMeta: type = abc.ABCMeta if typing.TYPE_CHECKING else type(typing.Protocol)
+
+
+class _ProtocolModelMeta(ModelMeta, _ProtocolMeta):
+    """A metaclass to allow 'Model' objects to be used with protocols."""
+
+
+class _ProtocolModel(Model, metaclass=_ProtocolModelMeta):
+    """A base class for 'Model' objects that allows them to be used alongside protocols."""
 
 
 class Identity(typing.NamedTuple):
@@ -42,11 +61,11 @@ class Identity(typing.NamedTuple):
         return str(self.nick or self.name)[:32]
 
 
-class Staff(Model):
+class Staff(_ProtocolModel, Canonical):
     """A bot to be deployed to Discord along with a global name and description."""
 
     #: A unique ID for the staff member.
-    id: int = fields.BigIntField(primary_key=True)
+    id: UUIDField = fields.UUIDField(primary_key=True)
 
     #: The Discord token this bot will use to connect to Discord.
     discord_token: CharField = fields.CharField(max_length=100, unique=True)
@@ -76,15 +95,38 @@ class Staff(Model):
 
     def __repr__(self) -> str:
         """Return a Python representation of the 'Staff' object."""
+        desc: str = (
+            self.description
+            if len(self.description) < _DESC_REPR_LEN
+            else f"{self.description[:_DESC_REPR_LEN - 3]}..."
+        )
+
         return (
             f"{self.__class__.__name__}("
-            f"id={self.id!r}, "
+            f"id='{self.id}', "
             f"load_on_start={self.load_on_start!r}, "
             f"name={self.name!r}, "
             f"nick={self.nick!r}, "
-            f"description={self.description!r}"
+            f"description={desc!r}"
             ")"
         )
+
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
+        desc: str = (
+            self.description
+            if len(self.description) < _DESC_REPR_LEN
+            else f"{self.description[:_DESC_REPR_LEN - 3]}..."
+        )
+
+        return {
+            "id": str(self.id),
+            "load_on_start": self.load_on_start,
+            "name": self.name,
+            "nick": self.nick,
+            "description": desc,
+        }
 
     async def get_identity(self, server_id: int | None = None) -> Identity:
         """Get the 'Identity' the bot will use on the given 'server_id'.
@@ -115,7 +157,7 @@ class Feature(Model):
     #: The name of the 'Feature'.
     name: CharField = fields.CharField(primary_key=True, max_length=255)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """Return the 'Feature' name."""
         return str(self.name)
 
@@ -128,12 +170,12 @@ class Server(Model):
     #: See: https://discord.com/developers/docs/reference#snowflakes
     id: int = fields.BigIntField(primary_key=True, generated=False)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """Return a string representation of the 'Server'."""
         return str(self.id)
 
 
-class ServerAlias(Model):
+class ServerAlias(_ProtocolModel, Canonical):
     """A mapping of 'Staff' and 'Server' that contains information for a custom 'Identity'.
 
     'ServerAlias' stores the data for a custom, non-default, 'Identity' that can be configured for
@@ -141,7 +183,7 @@ class ServerAlias(Model):
     """
 
     #: A unique ID representing the mapping.
-    id: int = fields.BigIntField(primary_key=True)
+    id: UUIDField = fields.UUIDField(primary_key=True)
 
     #: The 'Staff' object using the alias.
     staff: ForeignKeyRelation = fields.ForeignKeyField("models.Staff", related_name="aliases")
@@ -171,11 +213,33 @@ class ServerAlias(Model):
 
     def __repr__(self) -> str:
         """Return a Python representation of the 'ServerAlias' object."""
+        desc: str = (
+            self.description
+            if len(self.description) < _DESC_REPR_LEN
+            else f"{self.description[:_DESC_REPR_LEN - 3]}..."
+        )
+
         return (
             f"{self.__class__.__name__}("
             f"id={self.id!r}, "
             f"name={self.name!r}, "
             f"nick={self.nick!r}, "
-            f"description={self.description!r}"
+            f"description={desc!r}"
             ")"
         )
+
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
+        desc: str = (
+            self.description
+            if len(self.description) < _DESC_REPR_LEN
+            else f"{self.description[:_DESC_REPR_LEN - 3]}..."
+        )
+
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "nick": self.nick,
+            "description": desc,
+        }

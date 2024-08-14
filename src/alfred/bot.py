@@ -11,6 +11,7 @@ import typing
 import discord
 import structlog
 
+from alfred.logging import Canonical
 from alfred.typing import Presence
 
 if typing.TYPE_CHECKING:
@@ -22,7 +23,7 @@ __all__ = ("Bot",)
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
-class Bot(discord.Bot):
+class Bot(discord.Bot, Canonical):
     """The main 'Bot' class used to deploy 'Staff' to Discord servers.
 
     Parameters
@@ -37,6 +38,32 @@ class Bot(discord.Bot):
         self._presence_lock = asyncio.Lock()
 
         super().__init__(**kwargs)
+
+    def __repr__(self) -> str:
+        """Get a Python representation of this object.
+
+        Returns
+        -------
+        str
+            A Python representation of this object.
+
+        """
+        return (
+            f"Bot("
+            f"owner_ids={(self.owner_ids or {self.owner_id})!r}, "
+            f"presence={self.current_presence!r}, "
+            f"is_ready={self.is_ready()!r}"
+            ")"
+        )
+
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
+        return {
+            "owner_ids": list(self.owner_ids) or [self.owner_id],
+            "presence": self.current_presence,
+            "is_ready": self.is_ready(),
+        }
 
     @property
     def activities(self) -> set[discord.BaseActivity]:
@@ -99,7 +126,7 @@ class Bot(discord.Bot):
             async with self._presences() as presences:
                 presences[uid] = presence
 
-        await _log.ainfo("Setting bot presence.", presence=presence)
+        structlog.contextvars.bind_contextvars(presence=presence)
         await self._bot.change_presence(**presence._asdict())
 
         try:
@@ -109,7 +136,7 @@ class Bot(discord.Bot):
                 async with self._presences() as presences:
                     del presences[uid]
 
-            await _log.ainfo("Setting presence.", presence=self.current_presence)
+            structlog.contextvars.bind_contextvars(presence=self.current_presence)
             await self._bot.change_presence(**self.current_presence._asdict())
 
     @contextlib.asynccontextmanager
@@ -151,21 +178,48 @@ class Bot(discord.Bot):
         """
         return user.nick if hasattr(user, "nick") and user.nick else user.display_name
 
-    async def on_application_command_error(
-        self,
-        _: discord.ApplicationContext,
-        exception: discord.DiscordException,
-    ) -> None:
-        """Catch all application command errors and log them.
+    async def on_error(self, event_method: str, *args: Any, **kwargs: Any) -> None:
+        """Log any unhandled errors.
 
         Parameters
         ----------
-        _ : discord.ApplicationContext
+        event_method : str
+            The name of the event that raised the exception.
+        args : tuple[Any, ...]
+            Positional arguments sent to 'event_method'.
+        kwargs : dict[str, Any]
+            Keyword arguments sent to 'event_method'.
+
+        """
+        try:
+            await _log.aexception(f"Ignoring exception in {event_method}.", *args, **kwargs)
+        except Exception:
+            await _log.aexception(f"Ignoring exception in {event_method}.")
+
+    async def on_application_command_error(
+        self,
+        context: discord.ApplicationContext,
+        exception: discord.DiscordException,
+    ) -> None:
+        """Log any unhandled application command errors.
+
+        Parameters
+        ----------
+        context : discord.ApplicationContext
             The context for the current command.
         exception : discord.DiscordException
             The exception raised from the application command.
 
         """
+        if self._event_handlers.get("on_application_command_error", None):
+            return
+
+        if (command := context.command) and command.has_error_handler():
+            return
+
+        if (cog := context.cog) and cog.has_error_handler():
+            return
+
         await _log.aerror(
             "An exception occurred while running an application command.",
             exc_info=exception,

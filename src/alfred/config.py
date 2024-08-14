@@ -165,7 +165,7 @@ class _ConfigMetaclass(type):
         bases: tuple[type],
         classdict: dict[str, Any],
     ) -> _ConfigMetaclass:  # noqa: PYI019
-        """_summary_.
+        """Create a new Config class.
 
         Parameters
         ----------
@@ -223,7 +223,7 @@ class _ConfigMetaclass(type):
         )
 
     def init(cls: _ConfigMetaclass, *args: Any, **kwargs: Any) -> Any:
-        """_summary_.
+        """Initialize the new Config class and store it as a singleton.
 
         Parameters
         ----------
@@ -317,7 +317,7 @@ class Config(metaclass=_ConfigMetaclass):
 
     @classmethod
     def get(cls, name: str, namespace: str, *, required: bool = False, default: Any = ...) -> Any:
-        """_summary_.
+        """Get the value of the attribute from the namespace.
 
         Parameters
         ----------
@@ -422,7 +422,7 @@ class Config(metaclass=_ConfigMetaclass):
         return __version__
 
     def _process_env(self) -> None:
-        """Something."""
+        """Process environment variables."""
         dotenv.load_dotenv()
 
         for attr in self._registry.values():

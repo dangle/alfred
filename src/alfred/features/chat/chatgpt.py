@@ -45,7 +45,7 @@ from openai.types.chat import (
 from openai.types.chat.chat_completion_message_tool_call_param import Function
 from openai.types.shared_params import FunctionDefinition
 
-from alfred import db, feature, fields
+from alfred import feature, fields
 from alfred.features.chat.context import MessageApplicationContext
 from alfred.translation import gettext as _
 
@@ -54,14 +54,16 @@ if typing.TYPE_CHECKING:
 
     from discord import ApplicationCommand
 
-__all__ = ("ChatGPT",)
+__all__ = ("Chat",)
 
-_FEATURE = "ChatGPT"
-
-_log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=_FEATURE)
+_log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 _WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
+
 _THINKING = discord.CustomActivity(_("Thinking"))
+
+#: The maximum length of a Discord message.
+_MAX_REPLY_LEN: int = 2000
 
 
 class _ChatGPTModels(enum.StrEnum):
@@ -104,7 +106,7 @@ class _Tool:
     tool: ChatCompletionToolParam
 
 
-class ChatGPT(feature.Feature):
+class Chat(feature.Feature):
     """Manages chat interactions and commands in the bot."""
 
     #: An asynchronous OpenAI client.
@@ -121,7 +123,6 @@ class ChatGPT(feature.Feature):
     model = fields.ConfigField[str](
         namespace="alfred.openai",
         env="CHATGPT_MODEL",
-        required=False,
         default=_ChatGPTModels.GPT_4O,
     )
 
@@ -129,7 +130,6 @@ class ChatGPT(feature.Feature):
     #: Higher values are more creative.
     temperature = fields.BoundedConfigField[float][0:1](  # type: ignore[operator]
         parser=float,
-        required=False,
         default=0.2,
     )
 
@@ -153,19 +153,18 @@ class ChatGPT(feature.Feature):
     #: seconds.
     _TIME_TO_WAIT_FOR_CORRECTIONS_S: int = 60
 
+    _CONTROL_MESSAGE: str = _(
+        "If you do not believe a message is intended for you, respond with: {response}\n",
+    ).format(response=_NO_RESPONSE)
+    _TOOL_MESSAGE: str = _(
+        "If multiple functions could be returned, pick one instead of asking which function to"
+        " use.\n"
+        "If you are get a file from a function, do *NOT* try to embed it with  markdown syntax.\n",
+    )
+
     def __init__(self) -> None:
         self._history: dict[int, list[ChatCompletionMessageParam]] = defaultdict(list)
         self._history_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
-
-        self._control_message: str = _(
-            "If you do not believe a message is intended for you, respond with: {response}\n",
-        ).format(response=self._NO_RESPONSE)
-        self._tool_message: str = _(
-            "If multiple functions could be returned, pick one instead of asking which function to"
-            " use.\n"
-            "If you are get a file from a function, do *NOT* try to embed it with  markdown"
-            " syntax.\n",
-        )
         self._tools: dict[str, _Tool] = {}
 
     @feature.listener("on_ready", once=True)
@@ -187,7 +186,7 @@ class ChatGPT(feature.Feature):
         for command in self.bot.application_commands:
             await self.add_tool(command)
 
-        await _log.ainfo("Tools for the chat service.", tools=list(self._tools))
+        structlog.contextvars.bind_contextvars(tools=list(self._tools))
 
     async def add_tool(
         self,
@@ -207,6 +206,7 @@ class ChatGPT(feature.Feature):
         if isinstance(command, discord.SlashCommandGroup):
             for cmd in command.walk_commands():
                 await self.add_tool(cmd)
+
             return
 
         try:
@@ -375,7 +375,11 @@ class ChatGPT(feature.Feature):
                     case _ResponseType.ToolCall:
                         pass
                     case _:
-                        await message.reply(response)
+                        for chunk in (
+                            response[i : i + _MAX_REPLY_LEN]
+                            for i in range(0, len(response), _MAX_REPLY_LEN)
+                        ):
+                            await message.reply(chunk)
 
             if must_respond:
                 self.bot.dispatch("waiting_for_corrections")
@@ -674,11 +678,20 @@ class ChatGPT(feature.Feature):
 
         ai = cast(openai.AsyncOpenAI, self.ai)
         response: ChatCompletion = await ai.chat.completions.create(**kwargs)
-        await _log.ainfo(
-            "Chat service usage.",
-            usage=response.usage,
+
+        structlog.contextvars.bind_contextvars(
+            chat_usage=(
+                {
+                    "completion_tokens": response.usage.completion_tokens,
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+                if response.usage
+                else None
+            ),
             history_length=len(self._history),
         )
+
         return response
 
     async def _get_chat_context(
@@ -714,7 +727,10 @@ class ChatGPT(feature.Feature):
 
         """
         messages: list[ChatCompletionMessageParam] = self._history[message.channel.id].copy()
-        system_message = (await self._get_identity(message)).description
+        guild_id: int | None = (
+            message.channel.guild.id if hasattr(message.channel, "guild") else None
+        )
+        system_message = (await self.staff.get_identity(guild_id)).description
 
         if not must_respond or system_message:
             messages.insert(
@@ -722,30 +738,11 @@ class ChatGPT(feature.Feature):
                 ChatCompletionSystemMessageParam(
                     role=_MessageRole.System,
                     content=(
-                        f"{self._tool_message}"
-                        f"{"" if must_respond else self._control_message}"
+                        f"{self._TOOL_MESSAGE}"
+                        f"{"" if must_respond else self._CONTROL_MESSAGE}"
                         f"{system_message}"
                     ),
                 ),
             )
 
         return messages
-
-    async def _get_identity(self, message: discord.Message) -> db.Identity:
-        """Get the system customization for the guild the message was sent in.
-
-        Attributes
-        ----------
-        message : discord.Message
-
-        Returns
-        -------
-        _GuildCustomization
-            The customization for the guild the message was sent in or the default customization if
-            the message was not sent to a guild or the guild was not customized.
-
-        """
-        guild_id: int | None = (
-            message.channel.guild.id if hasattr(message.channel, "guild") else None
-        )
-        return await self.staff.get_identity(guild_id)

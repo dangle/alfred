@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import abc
 import importlib
 import inspect
 import sys
@@ -10,18 +11,29 @@ import typing
 import discord
 import discord.ext.commands
 import structlog
+from discord import Cog
+from discord.utils import MISSING
+
+from alfred.logging import Canonical, canonical_event, register_canonical_type
 
 if typing.TYPE_CHECKING:
+    import abc
     from collections.abc import Callable, Iterable
     from types import ModuleType
-    from typing import Any
+    from typing import Any, Concatenate
+
+    from discord import ApplicationContext
+    from discord.ext.commands import Command, Context
+    from discord.ext.commands._types import Coro
 
 
 __all__ = (
+    "ENTRY_POINT_GROUP",
     "CommandGroup",
     "Feature",
     "FeatureMetaclass",
     "FeatureRef",
+    "SlashCommand",
     "command",
     "discover_features",
     "isfeatureclass",
@@ -33,37 +45,13 @@ __all__ = (
 #: The group name that all new features must belong to in order to be discovered
 ENTRY_POINT_GROUP: str = "alfred.features"
 
-
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
-#: An alias for 'discord.Cog.listener'.
-listener = discord.Cog.listener
+#: Necessary to make features usable with protocols.
+_ProtocolMeta: type = abc.ABCMeta if typing.TYPE_CHECKING else type(typing.Protocol)
 
 
-def command(*args: Any, **kwargs: Any) -> Callable[..., discord.ApplicationCommand]:
-    """Wrap 'discord.ext.commands.command' and add an 'is_global' attribute to created commands.
-
-    Returns
-    -------
-    Callable[..., discord.ApplicationCommand]
-        The 'discord.ApplicationCommand' returned by 'discord.ext.commands.command'.
-
-    """
-    is_global: bool = kwargs.pop("is_global") if "is_global" in kwargs else False
-    ac = discord.ext.commands.command(*args, **kwargs)
-    ac.is_global = is_global  # type: ignore[attr-defined]
-    return ac
-
-
-class CommandGroup(discord.SlashCommandGroup):
-    """A subclass of 'discord.SlashCommandGroup' that adds an 'is_global' attribute."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.is_global: bool = kwargs.pop("is_global") if "is_global" in kwargs else False
-        super().__init__(*args, **kwargs)
-
-
-class FeatureMetaclass(discord.CogMeta):
+class FeatureMetaclass(discord.CogMeta, _ProtocolMeta, abc.ABCMeta):
     """A metaclass that adds stores the feature name, bot, and guild_ids on a class."""
 
     def __new__(
@@ -72,7 +60,7 @@ class FeatureMetaclass(discord.CogMeta):
         bases: tuple[type],
         classdict: dict[str, Any],
     ) -> FeatureMetaclass:
-        """Create a new metaclass that enhances 'discord.cog.CogMeta'.
+        """Create a new metaclass that enhances 'CogMeta'.
 
         Parameters
         ----------
@@ -99,7 +87,7 @@ class FeatureMetaclass(discord.CogMeta):
         return typing.cast(FeatureMetaclass, cls)
 
     def __call__(
-        cls,  # noqa: N805
+        cls,
         *args: Any,
         **kwargs: Any,
     ) -> Feature:
@@ -148,8 +136,8 @@ class FeatureMetaclass(discord.CogMeta):
         return self
 
 
-class Feature(discord.Cog, metaclass=FeatureMetaclass):
-    """A 'discord.Cog' that stores the name and bot and injects 'guild_ids' into commands."""
+class Feature(Cog, Canonical, metaclass=FeatureMetaclass):
+    """A 'Cog' that stores the name and bot and injects 'guild_ids' into commands."""
 
     _Feature__extras: dict[str, Any]
     intents: discord.Intents = discord.Intents.none()
@@ -165,6 +153,44 @@ class Feature(discord.Cog, metaclass=FeatureMetaclass):
 
         """
         return getattr(cls, "__feature_name__", None) or cls.__name__
+
+    def __str__(self) -> str:
+        """Return the name of the 'Feature'.
+
+        Returns
+        -------
+        str
+            The name of the 'Feature'.
+
+        """
+        return self.name()
+
+    def __repr__(self) -> str:
+        """Return a Python representation of the 'Feature'.
+
+        Returns
+        -------
+        str
+            A string of the Python representation of the 'Feature'.
+
+        """
+        return (
+            f"{self.__class__.__name__}(name='{self.name()!r}', extras={self._Feature__extras!r})"
+        )
+
+    @typing.override
+    @property
+    def __canonical__(self) -> dict[str, Any]:
+        loggable: dict[str, Any] = {
+            "feature": self.name(),
+        }
+        loggable.update(
+            {
+                k: (v.__canonical__ if isinstance(v, Canonical) else v)
+                for k, v in self._Feature__extras.items()
+            },
+        )
+        return loggable
 
 
 class FeatureRef(typing.NamedTuple):
@@ -302,3 +328,208 @@ def get_intents(*features: type[Feature]) -> discord.Intents:
         intents = intents | feature.intents
 
     return intents
+
+
+class SlashCommand[
+    CogT: Cog, **P,
+    T,
+](discord.SlashCommand):
+    """A 'discord.SlashCommand' that adds a canonical logging wrapper to the command."""
+
+    @discord.SlashCommand.callback.setter  # type: ignore[attr-defined]
+    def callback(
+        self,
+        function: (
+            Callable[Concatenate[CogT, ApplicationContext, P], Coro[T]]
+            | Callable[Concatenate[ApplicationContext, P], Coro[T]]
+        ),
+    ) -> None:
+        """Set the callback function for the 'SlashCommand' and wrap it in a canonical logger.
+
+        Parameters
+        ----------
+        function : Callable[..., Coro[T]]
+            A command function to wrap with a canonical logger.
+
+        """
+        discord.SlashCommand.callback.fset(  # type: ignore[attr-defined]
+            self,
+            canonical_event(function, command=self.qualified_name),
+        )
+
+
+class CommandGroup(discord.SlashCommandGroup):
+    """A subclass of 'discord.SlashCommandGroup' that creates 'SlashCommand' objects."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.is_global: bool = kwargs.pop("is_global", False)
+        super().__init__(*args, **kwargs)
+
+    def command[  # type: ignore[override]
+        T: discord.SlashCommand
+    ](self, **kwargs: Any) -> Callable[[Callable], discord.SlashCommand]:
+        """Create a new subgroup command from the given function.
+
+        Returns
+        -------
+        Callable[[Callable], discord.SlashCommand]
+            A decorator that will convert a function into a subcommand of this group.
+
+        """
+        return super().command(SlashCommand, **kwargs)
+
+
+def command[
+    ContextT: Context,
+    CommandT: Command,
+    CogT: Cog, **P,
+    T,
+](name: str = MISSING, **attrs: Any) -> Callable[
+    [
+        (
+            Callable[Concatenate[ContextT, P], Coro[Any]]
+            | Callable[Concatenate[CogT, ContextT, P], Coro[T]]
+        ),
+    ],
+    Command[CogT, P, T] | CommandT,
+]:
+    """Create a new slash command from the given function.
+
+    Returns
+    -------
+    Callable[..., Callable[..., Any]]
+        A decorator that will convert the given function into a SlashCommand.
+
+    """
+    return discord.ext.commands.command(name, cls=SlashCommand, **attrs)  # type: ignore[arg-type]
+
+
+def listener[
+    FuncT: Callable[..., Any]
+](name: str = MISSING, *, once: bool = False) -> Callable[[FuncT], FuncT]:
+    """Create a new listener from the given function.
+
+    Returns
+    -------
+    Callable[[FuncT], FuncT]
+        A decorator that will convert the given function into a new listener with canonical logging.
+
+    """
+    cog_decorator: Callable[[FuncT], FuncT] = Cog.listener(name, once)
+
+    def decorator(func: FuncT) -> FuncT:
+        listener_name = name if name is not MISSING else func.__name__
+        listener_func_name = func.__name__
+
+        return typing.cast(
+            FuncT,
+            cog_decorator(
+                canonical_event(
+                    func,
+                    listener={
+                        "event": listener_name,
+                        "listener": listener_func_name,
+                    },
+                ),
+            ),
+        )
+
+    return decorator
+
+
+def _get_canonical_message(message: discord.Message) -> dict[str, Any]:
+    """Get a dict object from a 'discord.Message' to use in logging.
+
+    Parameters
+    ----------
+    message : discord.Message
+        A 'discord.Message' object to be logged.
+
+    Returns
+    -------
+    dict[str, Any]
+        A dict representation of a 'discord.Message' to use in logging.
+
+    """
+    loggable: dict[str, Any] = {
+        "id": message.id,
+        "author": {
+            "name": message.author.name,
+            "bot": message.author.bot,
+        },
+        "channel": {
+            "id": message.channel.id,
+        },
+    }
+
+    match channel := message.channel:
+        case discord.TextChannel(guild=discord.Guild()):
+            loggable["channel"].update(
+                {
+                    "server": {
+                        "id": channel.guild.id,
+                        "name": channel.guild.name,
+                    },
+                    "nsfw": channel.nsfw,
+                    "news": channel.news,
+                    "type": "text",
+                },
+            )
+        case discord.Thread():
+            loggable["channel"].update(
+                {
+                    "parent_id": channel.parent_id,
+                    "server": {
+                        "id": channel.guild.id,
+                        "name": channel.guild.name,
+                    },
+                    "type": "thread",
+                },
+            )
+
+            if (
+                parent_channel := next(
+                    (
+                        typing.cast(discord.TextChannel, c)
+                        for c in channel.guild.channels
+                        if c.id == channel.parent_id
+                    ),
+                    None,
+                )
+            ) is not None:
+                loggable["channel"].update(
+                    {
+                        "nsfw": parent_channel.nsfw,
+                        "news": parent_channel.news,
+                    },
+                )
+        case discord.DMChannel(recipient=discord.User()) if isinstance(
+            channel.recipient,
+            discord.User,
+        ):
+            loggable["channel"].update(
+                {
+                    "type": "dm",
+                    "recipients": [
+                        {
+                            "id": channel.recipient.id,
+                            "name": channel.recipient.name,
+                        },
+                    ],
+                },
+            )
+        case discord.DMChannel(recipient=None):
+            loggable["channel"]["type"] = "dm"
+        case discord.GroupChannel():
+            loggable["channel"].update(
+                {
+                    "type": "group",
+                    "recipients": [{"id": r.id, "name": r.name} for r in channel.recipients],
+                },
+            )
+
+    return {"channel_message": loggable}
+
+
+register_canonical_type(discord.Message, _get_canonical_message)
+register_canonical_type(discord.ApplicationContext, lambda _: {})
