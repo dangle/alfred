@@ -108,12 +108,18 @@ class ConfigField[T]:
             required=self._required,
         )
 
-    def __get__(self, instance: Any, owner: type) -> T:
+    @typing.overload
+    def __get__(self, instance: None, owner: type) -> typing.Self: ...
+
+    @typing.overload
+    def __get__(self, instance: object, owner: type) -> T: ...
+
+    def __get__(self, instance: object | None, owner: type) -> T | typing.Self:
         """Get the configuration value for a specific instance.
 
         Parameters
         ----------
-        instance : Any
+        instance : object
             The instance on which to store the configuration value.
         owner : type
             The class in which the descriptor was used.
@@ -124,6 +130,9 @@ class ConfigField[T]:
             The configuration value of type 'T'.
 
         """
+        if instance is None:
+            return self
+
         if self._storage_name not in vars(instance):
             namespace: str = typing.cast(str, self._namespace)
             vars(instance)[self._storage_name] = config.get(
@@ -156,6 +165,26 @@ class ConfigField[T]:
         filename = typing.cast(str, sys.modules[name].__file__)
         file = pathlib.Path(filename)
         return file.resolve().stem
+
+    def __set__(self, instance: object, value: T) -> None:
+        """Prevent the attribute from being set.
+
+        Parameters
+        ----------
+        instance : object
+            The instance on which the value is attempting to be overwritten.
+        value : T
+            The ignored value to be set.
+
+        Raises
+        ------
+        AttributeError
+            Always raised because this is a read-only attribute.
+
+        """
+        raise AttributeError(
+            f"'{type(instance).__name__}' object attribute '{self._storage_name}' is read-only.",
+        )
 
 
 class _BoundedType[T](type):
@@ -198,12 +227,19 @@ class BoundedConfigField[T](ConfigField[T], metaclass=_BoundedType):
     #: The bounds to use when validating the configuration value.
     _bounds: T | slice | tuple[slice, ...] | EllipsisType = ...
 
-    def __get__(self, instance: Any, owner: type) -> T:
+    @typing.overload
+    def __get__(self, instance: None, owner: type) -> typing.Self: ...
+
+    @typing.overload
+    def __get__(self, instance: object, owner: type) -> T: ...
+
+    @typing.override
+    def __get__(self, instance: object | None, owner: type) -> T | typing.Self:
         """Get the configuration value for a specific instance and validate it.
 
         Parameters
         ----------
-        instance : Any
+        instance : object
             The instance on which to store the configuration value.
         owner : type
             The class in which the descriptor was used.
@@ -219,6 +255,9 @@ class BoundedConfigField[T](ConfigField[T], metaclass=_BoundedType):
             Raised if the configuration value is not within the specified bounds.
 
         """
+        if instance is None:
+            return self
+
         value: T = super().__get__(instance, owner)
 
         match type(self._bounds):
@@ -271,12 +310,18 @@ class AIField(ConfigField[openai.AsyncOpenAI]):
             required=required,
         )
 
-    def __get__(self, instance: Any, owner: type) -> openai.AsyncOpenAI:
+    @typing.overload
+    def __get__(self, instance: None, owner: type) -> typing.Self: ...
+
+    @typing.overload
+    def __get__(self, instance: object, owner: type) -> openai.AsyncOpenAI: ...
+
+    def __get__(self, instance: object | None, owner: type) -> openai.AsyncOpenAI | typing.Self:
         """Get the 'openai.AsyncOpenAI' client for the specified instance.
 
         Parameters
         ----------
-        instance : Any
+        instance : object
             The instance on which to store the OpenAI client.
         owner : type
             The class in which the descriptor was used.
@@ -287,6 +332,9 @@ class AIField(ConfigField[openai.AsyncOpenAI]):
             An asynchronous OpenAI client.
 
         """
+        if instance is None:
+            return self
+
         if self._storage_name not in vars(instance):
             vars(instance)[self._storage_name] = openai.AsyncOpenAI(
                 api_key=config.alfred.openai.openai_api_key,
@@ -319,8 +367,14 @@ class FeatureField(ABC):
 
         self._storage_name = name
 
+    @typing.overload
+    def __get__(self, instance: None, owner: type[feature.Feature]) -> typing.Self: ...
+
+    @typing.overload
+    def __get__(self, instance: feature.Feature, owner: type[feature.Feature]) -> Any: ...
+
     @abstractmethod
-    def __get__(self, instance: feature.Feature, _: type[feature.Feature]) -> Any:
+    def __get__(self, instance: feature.Feature | None, owner: type[feature.Feature]) -> Any:
         """Get a value from a 'feature.Feature' instance.
 
         This must be overridden by subclasses.
@@ -329,7 +383,7 @@ class FeatureField(ABC):
         ----------
         instance : feature.Feature
             The 'feature.Feature' instance.
-        _ : type[feature.Feature]
+        owner : type[feature.Feature]
             The 'feature.Feature' class on which the descriptor was used.
 
         Returns
@@ -338,6 +392,26 @@ class FeatureField(ABC):
             The value to be returned by subclasses.
 
         """
+
+    def __set__(self, instance: object, value: Any) -> None:
+        """Prevent the attribute from being set.
+
+        Parameters
+        ----------
+        instance : object
+            The instance on which the value is attempting to be overwritten.
+        value : Any
+            The ignored value to be set.
+
+        Raises
+        ------
+        AttributeError
+            Always raised because this is a read-only attribute.
+
+        """
+        raise AttributeError(
+            f"'{type(instance).__name__}' object attribute '{self._storage_name}' is read-only.",
+        )
 
 
 class ExtrasField(FeatureField):
@@ -355,14 +429,15 @@ class ExtrasField(FeatureField):
     def __init__(self, name: str | None = None) -> None:
         self._extras_name = name
 
-    def __get__(self, instance: feature.Feature, _: type[feature.Feature]) -> Any:
+    @typing.override
+    def __get__(self, instance: feature.Feature | None, owner: type[feature.Feature]) -> Any:
         """Get the value from the 'feature.Feature' extras on the instance.
 
         Parameters
         ----------
         instance : feature.Feature
             The 'feature.Feature' that has the extra data.
-        _ : type[feature.Feature]
+        owner : type[feature.Feature]
             The 'feature.Feature' class on which the descriptor was used.
 
         Returns
@@ -376,6 +451,9 @@ class ExtrasField(FeatureField):
             Raised if the attribute does not exist in the 'feature.Feature' extras.
 
         """
+        if instance is None:
+            return self
+
         return instance._Feature__extras[self._extras_name or self._storage_name]  # noqa: SLF001
 
 
