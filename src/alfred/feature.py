@@ -354,7 +354,7 @@ class SlashCommand[
         """
         discord.SlashCommand.callback.fset(  # type: ignore[attr-defined]
             self,
-            canonical_event(function, command=self.qualified_name),
+            canonical_event(command=self.qualified_name)(function),
         )
 
 
@@ -425,12 +425,11 @@ def listener[
             FuncT,
             cog_decorator(
                 canonical_event(
-                    func,
                     listener={
                         "event": listener_name,
                         "listener": listener_func_name,
                     },
-                ),
+                )(func),
             ),
         )
 

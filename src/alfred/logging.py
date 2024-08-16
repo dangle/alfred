@@ -98,45 +98,68 @@ def register_canonical_type(cls: type, func: Callable[[Any], dict[str, Any]]) ->
 register_canonical_type(dict, lambda x: x)
 
 
-def canonical_event(func: Callable[..., Any], **extras: Any) -> Callable[..., Any]:
-    """Add a canonical logger to a given function.
+def canonical_event(**extras: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Add a canonical logger to a function and pass in extra items to bind to the logger.
 
-    This wrapper will extract 'Feature' and 'discord.Message' objects so that they can be displayed
-    in a useful manner in the canonical log line.
+    Parameters
+    ----------
+    extras : dict[str, Any]
+        A map of keyword arguments and values to add to the context variables of logger for the
+        duration of the wrapped function that will be added to the canonical log line.
 
     Returns
     -------
-    Callable[..., Any]
-        Returns a wrapper function around 'func' that emits a canonical log line once the function
-        has completed.
+    Callable[[Callable[..., Any]], Callable[..., Any]]
+        A decorator that will wrap a function with a canonical logger.
 
     """
 
-    @functools.wraps(func)
-    async def wrapper[**P](*args: P.args, **kwargs: P.kwargs) -> Any:
-        logged_args: dict[int, Any] = dict(enumerate(args))
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        """Add a canonical logger to a given function.
 
-        if "trace_id" not in structlog.contextvars.get_contextvars():
-            extras["trace_id"] = str(uuid.uuid4())
+        This wrapper will extract 'Feature' and 'discord.Message' objects so that they can be
+        displayed in a useful manner in the canonical log line.
 
-        for i, arg in enumerate(args):
-            if isinstance(arg, Canonical):
-                extras.update(canonical(arg))
-                del logged_args[i]
+        Parameters
+        ----------
+        func : Callable[..., Any]
+            The function to decorate with the canonical logger.
 
-        if logged_args:
-            extras["args"] = list(logged_args.values())
+        Returns
+        -------
+        Callable[..., Any]
+            Returns a wrapper function around 'func' that emits a canonical log line once the
+            function has completed.
 
-        with structlog.contextvars.bound_contextvars(
-            **extras,
-            **kwargs,
-        ):
-            try:
-                return await func(*args, **kwargs)
-            finally:
-                structlog.get_logger().info("canonical-log-line")
+        """
 
-    return wrapper
+        @functools.wraps(func)
+        async def wrapper[**P](*args: P.args, **kwargs: P.kwargs) -> Any:
+            logged_args: dict[int, Any] = dict(enumerate(args))
+
+            if "trace_id" not in structlog.contextvars.get_contextvars():
+                extras["trace_id"] = str(uuid.uuid4())
+
+            for i, arg in enumerate(args):
+                if isinstance(arg, Canonical):
+                    extras.update(canonical(arg))
+                    del logged_args[i]
+
+            if logged_args:
+                extras["args"] = list(logged_args.values())
+
+            with structlog.contextvars.bound_contextvars(
+                **extras,
+                **kwargs,
+            ):
+                try:
+                    return await func(*args, **kwargs)
+                finally:
+                    structlog.get_logger().info("canonical-log-line")
+
+        return wrapper
+
+    return decorator
 
 
 def _rename_event_key(
