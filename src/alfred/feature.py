@@ -352,9 +352,10 @@ class SlashCommand[
             A command function to wrap with a canonical logger.
 
         """
+        log_decorator = canonical_event(command=self.qualified_name)
         discord.SlashCommand.callback.fset(  # type: ignore[attr-defined]
             self,
-            canonical_event(command=self.qualified_name)(function),
+            log_decorator(function),
         )
 
 
@@ -418,20 +419,13 @@ def listener[
     cog_decorator: Callable[[FuncT], FuncT] = Cog.listener(name, once)
 
     def decorator(func: FuncT) -> FuncT:
-        listener_name = name if name is not MISSING else func.__name__
-        listener_func_name = func.__name__
-
-        return typing.cast(
-            FuncT,
-            cog_decorator(
-                canonical_event(
-                    listener={
-                        "event": listener_name,
-                        "listener": listener_func_name,
-                    },
-                )(func),
-            ),
+        log_decorator = canonical_event(
+            listener={
+                "event": name if name is not MISSING else func.__name__,
+                "listener": func.__name__,
+            },
         )
+        return typing.cast(FuncT, cog_decorator(log_decorator(func)))
 
     return decorator
 
