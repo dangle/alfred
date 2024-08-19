@@ -25,8 +25,8 @@ import discord
 import openai
 import structlog
 
+from alfred import bot, feature
 from alfred import exceptions as exc
-from alfred import feature, fields
 from alfred.translation import gettext as _
 
 if typing.TYPE_CHECKING:
@@ -89,10 +89,10 @@ class DallE(feature.Feature):
     """Manages AI art interactions and commands in the bot."""
 
     #: An asynchronous OpenAI client.
-    ai = fields.AIField()
+    ai: openai.AsyncOpenAI
 
     #: The bot to which this feature is attached.
-    bot = fields.BotField()
+    bot: bot.Bot
 
     #: The intents required by this feature.
     intents: discord.Intents = discord.Intents(guilds=True)

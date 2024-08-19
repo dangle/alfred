@@ -38,7 +38,7 @@ from openai.types.chat import (
 )
 from openai.types.chat.chat_completion_message_tool_call_param import Function
 
-from alfred import feature, fields
+from alfred import bot, db, feature, fields
 from alfred.features.chat.activities import THINKING, WAITING_FOR_CORRECTIONS
 from alfred.features.chat.constants import (
     MAX_REPLY_LEN,
@@ -67,13 +67,13 @@ class Chat(feature.Feature):
     """Manages chat interactions and commands in the bot."""
 
     #: An asynchronous OpenAI client.
-    ai = fields.AIField()
+    ai: openai.AsyncOpenAI
 
     #: The bot to which this feature was attached.
-    bot = fields.BotField()
+    bot: bot.Bot
 
     #: The staff member this bot represents.
-    staff = fields.StaffField()
+    staff: db.Staff
 
     #: The chat service model to use when responding to users.
     #: Defaults to GPT-4o.
@@ -481,8 +481,7 @@ class Chat(feature.Feature):
         if "user" not in kwargs:
             kwargs["user"] = self.bot.get_user_name(message.author)
 
-        ai = typing.cast(openai.AsyncOpenAI, self.ai)
-        response: ChatCompletion = await ai.chat.completions.create(**kwargs)
+        response: ChatCompletion = await self.ai.chat.completions.create(**kwargs)
 
         structlog.contextvars.bind_contextvars(
             chat_usage=(

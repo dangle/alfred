@@ -192,7 +192,7 @@ class _ConfigMetaclass(type):
         """
         for base in bases:
             if isinstance(base, _ConfigMetaclass):
-                raise TypeError(f"{base.__name__} does not support subclassing.")
+                raise TypeError(f"{base.__qualname__} does not support subclassing.")
 
         return type.__new__(metacls, name, bases, classdict)
 
@@ -219,7 +219,8 @@ class _ConfigMetaclass(type):
             return cls.__instances[cls]
 
         raise exc.ConfigurationError(
-            f"Class '{cls.__name__}' has not been initialized. Call '{cls.__name__}.init()' first.",
+            f"Class '{cls.__qualname__}' has not been initialized. "
+            f"Call '{cls.__qualname__}.init()' first.",
         )
 
     def init(cls: _ConfigMetaclass, *args: Any, **kwargs: Any) -> Any:
@@ -246,7 +247,7 @@ class _ConfigMetaclass(type):
 
         """
         if cls in cls.__instances:
-            raise exc.ConfigurationError(f"Class '{cls.__name__}' has already been initialized.")
+            raise exc.ConfigurationError(f"Class '{cls.__qualname__}' has already been initialized.")
 
         cls.__instances[cls] = super().__call__(*args, **kwargs)
         return cls.__instances[cls]
