@@ -247,7 +247,9 @@ class _ConfigMetaclass(type):
 
         """
         if cls in cls.__instances:
-            raise exc.ConfigurationError(f"Class '{cls.__qualname__}' has already been initialized.")
+            raise exc.ConfigurationError(
+                f"Class '{cls.__qualname__}' has already been initialized."
+            )
 
         cls.__instances[cls] = super().__call__(*args, **kwargs)
         return cls.__instances[cls]
