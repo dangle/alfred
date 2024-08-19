@@ -32,12 +32,9 @@ from alfred.translation import gettext as _
 if typing.TYPE_CHECKING:
     from typing import Literal
 
-__all__ = ("DallE",)
+__all__ = ("Draw",)
 
-#: The name of the feature.
-_FEATURE: str = "Dall-E"
-
-_log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=_FEATURE)
+_log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class _DrawPresence(enum.Enum):
@@ -84,8 +81,7 @@ type _DallESizes = Literal["256x256", "512x512", "1024x1024", "1792x1024", "1024
 type _DallEImageQuality = Literal["standard", "hd"]
 
 
-@feature.name(_FEATURE)
-class DallE(feature.Feature):
+class Draw(feature.Feature):
     """Manages AI art interactions and commands in the bot."""
 
     #: An asynchronous OpenAI client.

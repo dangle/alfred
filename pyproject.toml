@@ -8,14 +8,14 @@ readme = "README.md"
 license = { text = "MIT" }
 dependencies = [
     "py-cord[speed,voice]>=2.6.0",
-    "openai>=1.40.3",
+    "openai>=1.41.0",
     "python-dotenv>=1.0.1",
     "structlog>=24.4.0",
-    "aiohttp[speedups]>=3.10.3",
+    "aiohttp[speedups]>=3.10.4",
     "pyyaml>=6.0.2",
-    "tortoise-orm>=0.21.5",
+    "tortoise-orm>=0.21.6",
     "aerich>=0.7.2",
-    "fastapi>=0.112.0",
+    "fastapi>=0.112.1",
     "hypercorn[uvloop]>=0.17.3",
 ]
 
@@ -30,7 +30,7 @@ types = ["types-PyYAML>=6.0.12.20240311"]
 alfred = "alfred.cli:main"
 
 [project.entry-points."alfred.features"]
-DallE = "alfred.features.dalle:DallE"
+DallE = "alfred.features.draw:Draw"
 ChatGPT = "alfred.features.chat:Chat"
 
 [tool.black]

@@ -12,10 +12,10 @@ Subpackages
 Submodules
 ----------
 
-alfred.features.dalle module
+alfred.features.draw module
 ----------------------------
 
-.. automodule:: alfred.features.dalle
+.. automodule:: alfred.features.draw
    :members:
    :undoc-members:
    :show-inheritance:
