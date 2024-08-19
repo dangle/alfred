@@ -25,19 +25,16 @@ import discord
 import openai
 import structlog
 
+from alfred import bot, feature
 from alfred import exceptions as exc
-from alfred import feature, fields
 from alfred.translation import gettext as _
 
 if typing.TYPE_CHECKING:
     from typing import Literal
 
-__all__ = ("DallE",)
+__all__ = ("Draw",)
 
-#: The name of the feature.
-_FEATURE: str = "Dall-E"
-
-_log: structlog.stdlib.BoundLogger = structlog.get_logger(feature=_FEATURE)
+_log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
 class _DrawPresence(enum.Enum):
@@ -84,15 +81,14 @@ type _DallESizes = Literal["256x256", "512x512", "1024x1024", "1792x1024", "1024
 type _DallEImageQuality = Literal["standard", "hd"]
 
 
-@feature.name(_FEATURE)
-class DallE(feature.Feature):
+class Draw(feature.Feature):
     """Manages AI art interactions and commands in the bot."""
 
     #: An asynchronous OpenAI client.
-    ai = fields.AIField()
+    ai: openai.AsyncOpenAI
 
     #: The bot to which this feature is attached.
-    bot = fields.BotField()
+    bot: bot.Bot
 
     #: The intents required by this feature.
     intents: discord.Intents = discord.Intents(guilds=True)

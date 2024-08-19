@@ -155,46 +155,9 @@ class _ConfigAttribute[T](typing.NamedTuple):
 
 
 class _ConfigMetaclass(type):
-    """Ensures that classes are final, singletons, and must be initialized before use."""
+    """Ensures that classes are singletons and must be initialized before use."""
 
     __instances: ClassVar[dict[_ConfigMetaclass, Any]] = {}
-
-    def __new__(
-        metacls: type[_ConfigMetaclass],  # noqa: N804
-        name: str,
-        bases: tuple[type],
-        classdict: dict[str, Any],
-    ) -> _ConfigMetaclass:  # noqa: PYI019
-        """Create a new Config class.
-
-        Parameters
-        ----------
-        metacls : type[_ConfigMetaclass]
-            The metaclass of the metaclass used to create the new class.
-        name : str
-            The name of the new.
-        bases : tuple[type]
-            The base classes of the new.
-            If any of them is also a '_ConfigMetaclass' a 'TypeError' will be raised.
-        classdict : dict[str, Any]
-            The dictionary containing all class members of the new class.
-
-        Returns
-        -------
-        _ConfigMetaclass
-            Returns a new class instance of '_ConfigMetaclass'.
-
-        Raises
-        ------
-        TypeError
-            Raised if any of the base classes are also instances of '_ConfigMetaclass'.
-
-        """
-        for base in bases:
-            if isinstance(base, _ConfigMetaclass):
-                raise TypeError(f"{base.__name__} does not support subclassing.")
-
-        return type.__new__(metacls, name, bases, classdict)
 
     def __call__(cls: _ConfigMetaclass) -> Any:
         """Return the singleton instance of the class.
@@ -219,7 +182,8 @@ class _ConfigMetaclass(type):
             return cls.__instances[cls]
 
         raise exc.ConfigurationError(
-            f"Class '{cls.__name__}' has not been initialized. Call '{cls.__name__}.init()' first.",
+            f"Class '{cls.__qualname__}' has not been initialized. "
+            f"Call '{cls.__qualname__}.init()' first.",
         )
 
     def init(cls: _ConfigMetaclass, *args: Any, **kwargs: Any) -> Any:
@@ -246,12 +210,15 @@ class _ConfigMetaclass(type):
 
         """
         if cls in cls.__instances:
-            raise exc.ConfigurationError(f"Class '{cls.__name__}' has already been initialized.")
+            raise exc.ConfigurationError(
+                f"Class '{cls.__qualname__}' has already been initialized.",
+            )
 
         cls.__instances[cls] = super().__call__(*args, **kwargs)
         return cls.__instances[cls]
 
 
+@typing.final
 class Config(metaclass=_ConfigMetaclass):
     """A global configuration singleton to be used by the application and any spawned bots.
 

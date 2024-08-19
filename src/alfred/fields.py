@@ -17,6 +17,7 @@ from alfred import config, feature
 if typing.TYPE_CHECKING:
     from types import EllipsisType
 
+    from alfred import feature
     from alfred.typing import ConfigProcessor
 
 __all__ = (
@@ -183,7 +184,7 @@ class ConfigField[T]:
 
         """
         raise AttributeError(
-            f"'{type(instance).__name__}' object attribute '{self._storage_name}' is read-only.",
+            f"'{type(instance).__qualname__}' object attribute '{self._storage_name}' is read-only",
         )
 
 
@@ -343,6 +344,9 @@ class AIField(ConfigField[openai.AsyncOpenAI]):
         return vars(instance)[self._storage_name]
 
 
+feature.Feature.register_field_to_annotation("openai.AsyncOpenAI", AIField)
+
+
 class FeatureField(ABC):
     """A base class for accessing attributes on a 'feature.Feature'."""
 
@@ -363,7 +367,7 @@ class FeatureField(ABC):
 
         """
         if not issubclass(owner, feature.Feature):
-            raise TypeError("'{owner.__name__}' can only be used in 'feature.Feature' objects")
+            raise TypeError("'{owner.__qualname__}' can only be used in 'feature.Feature' objects")
 
         self._storage_name = name
 
@@ -410,7 +414,7 @@ class FeatureField(ABC):
 
         """
         raise AttributeError(
-            f"'{type(instance).__name__}' object attribute '{self._storage_name}' is read-only.",
+            f"'{type(instance).__qualname__}' object attribute '{self._storage_name}' is read-only",
         )
 
 
@@ -425,6 +429,20 @@ class ExtrasField(FeatureField):
         this descriptor was assigned in the 'feature.Feature'.
 
     """
+
+    def __init_subclass__(subclass: type[ExtrasField]) -> None:  # noqa: N804
+        """Register subclasses to 'Feature' as known fields.
+
+        Parameters
+        ----------
+        subclass : type[ExtrasField]
+            The subclass to register to 'Feature'.
+
+        """
+        super().__init_subclass__()
+
+        if annotation := getattr(subclass, "MAPPED_ANNOTATION", None):
+            feature.Feature.register_field_to_annotation(annotation, subclass)
 
     def __init__(self, name: str | None = None) -> None:
         self._extras_name = name
@@ -460,6 +478,8 @@ class ExtrasField(FeatureField):
 class BotField(ExtrasField):
     """Sets the bot attribute from the 'feature.Feature' extras."""
 
+    MAPPED_ANNOTATION: str = "alfred.bot.Bot"
+
     def __init__(self) -> None:
         super().__init__("bot")
 
@@ -467,12 +487,16 @@ class BotField(ExtrasField):
 class ManorField(ExtrasField):
     """Sets the manor attribute from the 'feature.Feature' extras."""
 
+    MAPPED_ANNOTATION: str = "alfred.manor.Manor"
+
     def __init__(self) -> None:
         super().__init__("manor")
 
 
 class StaffField(ExtrasField):
     """Sets the staff attribute from the 'feature.Feature' extras."""
+
+    MAPPED_ANNOTATION: str = "alfred.db.Staff"
 
     def __init__(self) -> None:
         super().__init__("staff")

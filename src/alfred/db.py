@@ -102,7 +102,7 @@ class Staff(_ProtocolModel, Canonical):
         )
 
         return (
-            f"{self.__class__.__name__}("
+            f"{self.__class__.__qualname__}("
             f"id='{self.id}', "
             f"load_on_start={self.load_on_start!r}, "
             f"name={self.name!r}, "
@@ -220,7 +220,7 @@ class ServerAlias(_ProtocolModel, Canonical):
         )
 
         return (
-            f"{self.__class__.__name__}("
+            f"{self.__class__.__qualname__}("
             f"id={self.id!r}, "
             f"name={self.name!r}, "
             f"nick={self.nick!r}, "
