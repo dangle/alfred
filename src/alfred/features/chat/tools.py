@@ -40,7 +40,7 @@ class Tool:
     tool: ChatCompletionToolParam
 
 
-async def get_tools(application_commands: Iterable[discord.ApplicationCommand]) -> dict[str, Tool]:
+def get_tools(application_commands: Iterable[discord.ApplicationCommand]) -> dict[str, Tool]:
     """Map bot command names to chat service tools.
 
     Parameters
@@ -56,28 +56,28 @@ async def get_tools(application_commands: Iterable[discord.ApplicationCommand]) 
     """
     tools: dict[str, Tool] = {}
 
-    async def add_tool(command: discord.ApplicationCommand) -> None:
+    def add_tool(command: discord.ApplicationCommand) -> None:
         if isinstance(command, discord.SlashCommandGroup):
             for cmd in command.walk_commands():
-                await add_tool(cmd)
+                add_tool(cmd)
 
             return
 
         try:
             tools[command.qualified_name.replace(" ", "__")] = Tool(
                 command=command,
-                tool=await _convert_command_to_tool(command),
+                tool=_convert_command_to_tool(command),
             )
         except ValueError as e:
-            await _log.adebug("Unable to parse type in bot command.", exc_info=e)
+            _log.debug("Unable to parse type in bot command.", exc_info=e)
 
     for command in application_commands:
-        await add_tool(command)
+        add_tool(command)
 
     return tools
 
 
-async def _convert_command_to_tool(command: ApplicationCommand) -> ChatCompletionToolParam:
+def _convert_command_to_tool(command: ApplicationCommand) -> ChatCompletionToolParam:
     """Convert `command` into a tool that the chat service can call.
 
     Parameters
@@ -109,7 +109,7 @@ async def _convert_command_to_tool(command: ApplicationCommand) -> ChatCompletio
             or not parameter.name
             or parameter.name == "self"
         ):
-            await _log.adebug(
+            _log.debug(
                 "Skipping parameter.",
                 command=command.name,
                 parameter=parameter,
