@@ -85,9 +85,11 @@ class Chat(feature.Feature):
 
     #: A value between 0 and 1 describing how creative the chat service should be when answering.
     #: Higher values are more creative.
-    temperature = fields.BoundedConfigField[float][0:1](  # type: ignore[operator]
+    temperature = fields.BoundedConfigField[float](
         parser=float,
         default=0.2,
+        lower_bound=0,
+        upper_bound=1,
     )
 
     #: The intents required by this feature.

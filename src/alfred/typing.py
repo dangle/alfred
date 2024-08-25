@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import typing
+from abc import abstractmethod
+from typing import Protocol
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
@@ -12,6 +14,7 @@ if typing.TYPE_CHECKING:
 
 __all__ = (
     "ArgParseAction",
+    "Comparable",
     "ConfigValue",
     "ConfigProcessor",
     "ExitCode",
@@ -50,3 +53,11 @@ class Presence(typing.NamedTuple):
     #: The Discord activity portion of the 'Presence' that can be used to customize the message
     #: shown by Discord to indicate what the bot is doing.
     activity: discord.BaseActivity | None = None
+
+
+class Comparable[T](Protocol):
+    """Protocol for annotating comparable types."""
+
+    @abstractmethod
+    def __lt__(self: T, other: T) -> bool:  # noqa: D105
+        pass

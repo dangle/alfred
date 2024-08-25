@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import builtins
 import pathlib
 import sys
-import types
 import typing
 from abc import ABC, abstractmethod
 from typing import Any
@@ -13,10 +11,9 @@ from typing import Any
 import openai
 
 from alfred import config, feature
+from alfred.typing import Comparable
 
 if typing.TYPE_CHECKING:
-    from types import EllipsisType
-
     from alfred import feature
     from alfred.typing import ConfigProcessor
 
@@ -188,45 +185,19 @@ class ConfigField[T]:
         )
 
 
-class _BoundedType[T](type):
-    """A metaclass that allows a 'type' to be sliced."""
-
-    def __getitem__(cls: _BoundedType[T], bounds: T | slice | tuple[slice, ...]) -> _BoundedType[T]:
-        """Return a subclass of the sliced type with a '_bounds' class variable to hold the slice.
-
-        Parameters
-        ----------
-        cls : _BoundedType[T]
-            The sliced class.
-        bounds : T | slice | tuple[slice, ...]
-            The bounds, represented as value of type 'T', a slice, or a tuple of slices to store on
-            the new subclass.
-
-        Returns
-        -------
-        _BoundedType[T]
-            A new subclass of 'cls' that stores the bounds of the class.
-
-        """
-
-        class Bounded(cls):  # type: ignore[misc, valid-type]
-            _bounds: T | slice | tuple[slice, ...] | EllipsisType = ...
-
-        Bounded._bounds = bounds  # noqa: SLF001
-        Bounded.__name__ = cls.__name__
-        Bounded.__qualname__ = cls.__qualname__
-        Bounded.__module__ = cls.__module__
-        Bounded.__doc__ = cls.__doc__
-        Bounded.__annotations__ = cls.__annotations__
-
-        return typing.cast(_BoundedType[T], Bounded)
-
-
-class BoundedConfigField[T](ConfigField[T], metaclass=_BoundedType):
+class BoundedConfigField[T: Comparable](ConfigField[T]):
     """A descriptor that gets a configuration value and validates it using bounds."""
 
-    #: The bounds to use when validating the configuration value.
-    _bounds: T | slice | tuple[slice, ...] | EllipsisType = ...
+    def __init__(
+        self,
+        *,
+        lower_bound: T | None = None,
+        upper_bound: T | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._lower_bound = lower_bound
+        self._upper_bound = upper_bound
 
     @typing.overload
     def __get__(self, instance: None, owner: type) -> typing.Self: ...
@@ -261,29 +232,17 @@ class BoundedConfigField[T](ConfigField[T], metaclass=_BoundedType):
 
         value: T = super().__get__(instance, owner)
 
-        match type(self._bounds):
-            case types.EllipsisType:
-                pass
-            case builtins.slice:
-                bounds: slice = typing.cast(slice, self._bounds)
+        if self._lower_bound is not None and value < self._lower_bound:
+            raise ValueError(
+                f"'{owner.__qualname__}.{self._storage_name}'{value!r} which is below the "
+                f"minimum value of {self._lower_bound!r}",
+            )
 
-                if bounds.start is not None and value < bounds.start:
-                    raise ValueError(
-                        f"'{owner.__qualname__}.{self._storage_name}'{value!r} which is below the "
-                        f"minimum value of {bounds.start!r}",
-                    )
-
-                if bounds.stop is not None and value > bounds.stop:
-                    raise ValueError(
-                        f"'{owner.__qualname__}.{self._storage_name}' has value {value!r} which is "
-                        f"above the maximum value of {bounds.start!r}",
-                    )
-            case _:
-                if value != self._bounds:
-                    raise ValueError(
-                        f"'{owner.__qualname__}.{self._storage_name}' has value {value!r} but is "
-                        f"required to be {self._bounds!r}",
-                    )
+        if self._upper_bound is not None and value > self._upper_bound:
+            raise ValueError(
+                f"'{owner.__qualname__}.{self._storage_name}' has value {value!r} which is "
+                f"above the maximum value of {self._upper_bound!r}",
+            )
 
         return value
 
