@@ -192,13 +192,12 @@ class ChatClient(AutoFields):
             return ResponseType.NoResponse
 
         if assistant_message:
-            async with self._history[message.channel.id] as history:
-                history.append(
-                    ChatCompletionAssistantMessageParam(
-                        role=MessageRole.Assistant,
-                        content=message.content,
-                    ),
-                )
+            self._history[message.channel.id].stored_object.append(
+                ChatCompletionAssistantMessageParam(
+                    role=MessageRole.Assistant,
+                    content=message.content,
+                ),
+            )
             return assistant_message
 
         await _log.aerror("All responses from the chat service started with the prompt unmodified.")
@@ -286,12 +285,9 @@ class ChatClient(AutoFields):
             list[ChatCompletionMessageToolCall],
             response_message.tool_calls,
         )
-
-        async with self._history[message.channel.id] as history:
-            history.append(
-                self._get_tool_assistant_message(message, response_message),
-            )
-
+        self._history[message.channel.id].stored_object.append(
+            self._get_tool_assistant_message(message, response_message),
+        )
         tool_call = response_message.tool_calls[0]
         function = tool_call.function
         command = self._tools[function.name].command
@@ -315,14 +311,13 @@ class ChatClient(AutoFields):
                 )
                 content = str(e)
 
-            async with self._history[message.channel.id] as history:
-                history.append(
-                    ChatCompletionToolMessageParam(
-                        tool_call_id=tool_call.id,
-                        role=MessageRole.Tool,
-                        content=content,
-                    ),
-                )
+            self._history[message.channel.id].stored_object.append(
+                ChatCompletionToolMessageParam(
+                    tool_call_id=tool_call.id,
+                    role=MessageRole.Tool,
+                    content=content,
+                ),
+            )
 
             response_message = (
                 (
@@ -334,13 +329,12 @@ class ChatClient(AutoFields):
                 .choices[0]
                 .message
             )
-            async with self._history[message.channel.id] as history:
-                history.append(
-                    ChatCompletionAssistantMessageParam(
-                        role=MessageRole.Assistant,
-                        content=response_message.content,
-                    ),
-                )
+            self._history[message.channel.id].stored_object.append(
+                ChatCompletionAssistantMessageParam(
+                    role=MessageRole.Assistant,
+                    content=response_message.content,
+                ),
+            )
 
             if len(ctx.responses) == 1 and response_message.content != message.content:
                 ctx.responses[0].content = response_message.content
@@ -460,9 +454,9 @@ class ChatClient(AutoFields):
 
         """
         system_message: str = await self._get_system_message(message)
-
-        async with self._history[message.channel.id] as history:
-            messages: list[ChatCompletionMessageParam] = history.copy()
+        messages: list[ChatCompletionMessageParam] = self._history[
+            message.channel.id
+        ].stored_object.copy()
 
         if not must_respond or system_message:
             messages.insert(

@@ -17,6 +17,19 @@ class Locked[T]:
         self._obj: T = obj
         self._lock: asyncio.Lock = asyncio.Lock()
 
+    @property
+    def stored_object(self) -> T:
+        """Get the stored object.
+
+        Returns
+        -------
+        T
+            The stored object.
+            This does not require the lock to be acquired.
+
+        """
+        return self._obj
+
     async def __aenter__(self) -> T:
         """Acquire the lock and return the locked object.
 

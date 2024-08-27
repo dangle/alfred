@@ -44,7 +44,7 @@ class Chat(feature.Feature):
     staff: db.Staff
 
     #: The intents required by this feature.
-    #: This requires the priviledged intents in order to get access to server chat.
+    #: This requires the privileged intents in order to get access to server chat.
     intents: discord.Intents = discord.Intents(
         guilds=True,
         presences=True,
@@ -120,10 +120,10 @@ class Chat(feature.Feature):
     async def _must_respond(self, message: Message) -> bool:
         """Determine if the bot *must* respond to the given `message`.
 
-        The bot *must* respond to messages that:
-        1. Are private messages to the bot.
-        2. If the name of the bot is mentioned in the `message.content`.
-        3. If the bot is in the explicit mentions of the `message`.
+        The bot *must* respond to messages:
+        1. that are private messages to the bot.
+        2. where the name of the bot is mentioned in the `message.content`.
+        3. where the bot is in the explicit mentions of the `message`.
 
         Parameters
         ----------
