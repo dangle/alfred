@@ -6,6 +6,7 @@ import asyncio
 import os
 import typing
 import warnings
+from typing import Annotated
 
 import structlog
 import uvloop
@@ -16,6 +17,7 @@ from alfred import bot as bot_
 from alfred import config, db
 from alfred import exceptions as exc
 from alfred import feature, fields, logging, translation
+from alfred.autofields import AutoFields
 from alfred.logging import Canonical
 from alfred.translation import gettext as _
 
@@ -27,7 +29,6 @@ if typing.TYPE_CHECKING:
     from discord import Intents
 
     from alfred.feature import FeatureRef
-    from alfred.typing import ConfigValue
 
 
 __all__ = ("Manor",)
@@ -59,27 +60,7 @@ _DEFAULT_DESCRIPTION_TEMPLATE: str = _(
 )
 
 
-def _csv(value: ConfigValue) -> list[str]:
-    """Return a parsed list of comma-separated values from the given value.
-
-    Parameters
-    ----------
-    value : ConfigValue
-        A string containing comma-separated list of values or a list of already parsed values.
-
-    Returns
-    -------
-    list[str]
-        A list of all values in the comma-separated string.
-
-    """
-    if isinstance(value, dict):
-        raise TypeError("Expected 'str | list[str]' but got 'dict'")
-
-    return [v.strip() for v in value.split(",")] if isinstance(value, str) else value
-
-
-class Manor(Canonical):
+class Manor(Canonical, AutoFields):
     """A class for creating and managing staff members (aka Discord bots).
 
     Parameters
@@ -91,60 +72,66 @@ class Manor(Canonical):
 
     #: The features that staff members may be configured to use.
     #: If unconfigured, staff members will be able to use all available features.
-    enabled_features = fields.ConfigField[list[str]](
-        name="features",
-        namespace=_ALFRED_NAMESPACE,
-        env="ALFRED_ENABLED_FEATURES",
-        parser=_csv,
-        default=[],
-    )
+    enabled_features: Annotated[
+        tuple[str, ...],
+        fields.CSVConfigField[str](
+            name="features",
+            namespace=_ALFRED_NAMESPACE,
+            env="ALFRED_ENABLED_FEATURES",
+        ),
+    ] = ()
 
     #: The URL to use when connecting to the database.
     #: If unconfigured, the 'Manor' will create an ephemeral database.
-    db_url = fields.ConfigField[str](
-        namespace=_DB_NAMESPACE,
-        env="DATABASE_URL",
-        default=_IN_MEMORY_DB_URL,
+    db_url: Annotated[str, fields.ConfigField[str](namespace=_DB_NAMESPACE, env="DATABASE_URL")] = (
+        _IN_MEMORY_DB_URL
     )
 
     #: The Discord token to use when deploying the ephemeral staff member.
-    discord_token = fields.ConfigField[str](
-        name="token",
-        namespace=_DISCORD_NAMESPACE,
-        env="DISCORD_TOKEN",
-    )
+    discord_token: Annotated[
+        str,
+        fields.ConfigField[str](
+            name="token",
+            namespace=_DISCORD_NAMESPACE,
+            env="DISCORD_TOKEN",
+        ),
+    ]
 
-    #: The list of server IDs to use for any commands that do not have any configured.
-    guild_ids = fields.ConfigField[list[str]](
-        namespace=_DISCORD_NAMESPACE,
-        env="DISCORD_GUILD_IDS",
-        parser=_csv,
-        default=[],
-    )
+    #: The tuple of server IDs to use for any commands that do not have any configured.
+    guild_ids: Annotated[
+        tuple[str, ...],
+        fields.CSVConfigField[str](namespace=_DISCORD_NAMESPACE, env="DISCORD_GUILD_IDS"),
+    ] = ()
 
     #: The name to which the ephemeral staff member will respond.
-    ephemeral_name = fields.ConfigField[str](
-        name="name",
-        namespace=_ALFRED_NAMESPACE,
-        env="ALFRED_NAME",
-        default=_DEFAULT_NAME,
-    )
+    ephemeral_name: Annotated[
+        str,
+        fields.ConfigField[str](
+            name="name",
+            namespace=_ALFRED_NAMESPACE,
+            env="ALFRED_NAME",
+        ),
+    ] = _DEFAULT_NAME
 
     #: The nickname to set for the ephemeral staff member.
-    ephemeral_nick = fields.ConfigField[str | None](
-        name="nick",
-        namespace=_ALFRED_NAMESPACE,
-        env="ALFRED_NICK",
-        default=None,
-    )
+    ephemeral_nick: Annotated[
+        str | None,
+        fields.ConfigField[str | None](
+            name="nick",
+            namespace=_ALFRED_NAMESPACE,
+            env="ALFRED_NICK",
+        ),
+    ] = None
 
     #: The description to use for the ephemeral staff member.
-    ephemeral_description = fields.ConfigField[str](
-        name="description",
-        namespace=_ALFRED_NAMESPACE,
-        env="ALFRED_DESCRIPTION",
-        default=_DEFAULT_DESCRIPTION_TEMPLATE,
-    )
+    ephemeral_description: Annotated[
+        str,
+        fields.ConfigField[str](
+            name="description",
+            namespace=_ALFRED_NAMESPACE,
+            env="ALFRED_DESCRIPTION",
+        ),
+    ] = _DEFAULT_DESCRIPTION_TEMPLATE
 
     def __init__(self, config_file: Path | str | None = None) -> None:
         self._config_file = config_file

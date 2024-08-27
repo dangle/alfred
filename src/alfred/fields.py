@@ -10,18 +10,20 @@ from typing import Any
 
 import openai
 
-from alfred import config, feature
-from alfred.typing import Comparable
+from alfred import autofields, config, feature
+from alfred.typing import Comparable, ConfigProcessor, ConfigValue
 
 if typing.TYPE_CHECKING:
+    from types import EllipsisType
+
     from alfred import feature
-    from alfred.typing import ConfigProcessor
 
 __all__ = (
     "AIField",
     "BotField",
     "BoundedConfigField",
     "ConfigField",
+    "CSVConfigField",
     "ExtrasField",
     "FeatureField",
     "ManorField",
@@ -52,33 +54,24 @@ class ConfigField[T]:
 
     """
 
-    __slots__ = (
-        "_storage_name",
-        "_namespace",
-        "_key",
-        "_env",
-        "_parser",
-        "_required",
-        "_default",
-    )
-
     def __init__(
         self,
         *,
         name: str | None = None,
         namespace: str | None = None,
         env: str | None = None,
-        parser: ConfigProcessor[T] | None = None,
+        parser: ConfigProcessor[T] | None | EllipsisType = ...,
         required: bool = False,
         default: Any = ...,
     ) -> None:
+        self.default: Any = default
+        self.parser: ConfigProcessor[T] | None | EllipsisType = parser
+
         self._storage_name: str
         self._namespace: str | None = namespace
-        self._key: str | None = name
+        self._name: str | None = name
         self._env: str | None = env
-        self._parser: ConfigProcessor[T] | None = parser
         self._required: bool = required
-        self._default: Any = default
 
     def __set_name__(self, owner: type, name: str) -> None:
         """Set the name of the descriptor.
@@ -95,16 +88,54 @@ class ConfigField[T]:
             This is used to store the value on individual instances.
 
         """
-        self._storage_name = self._key or name
+        self._storage_name = self._name or name
         self._namespace = self._namespace or self._get_module_name(owner)
 
         config.register(
             self._storage_name,
             self._namespace,
             env=self._env,
-            parser=self._parser,
+            parser=self._get_parser(),
             required=self._required,
         )
+
+    def _get_parser(self, *, ignore_self: bool = False) -> ConfigProcessor[T] | None:
+        """Get the parser for the field.
+
+        If the parser was never set explicitly (i.e. it is '...'), attempt to determine an
+        appropriate parser from the type annotations, if available.
+
+        Parameters
+        ----------
+        ignore_self : bool
+            Attempt to get determine a parser even if one is already set if True.
+
+        Returns
+        -------
+        ConfigProcessor[T] | None
+            The value to register to the 'Config' object as the parser for this field.
+
+        """
+        if not ignore_self and self.parser is not ...:
+            return self.parser
+
+        if (
+            hasattr(self, "__orig_class__")
+            and (t := typing.get_args(self.__orig_class__))
+            and callable(t[0])
+        ):
+            return t[0]
+
+        if (
+            (bases := getattr(self, "__orig_bases__", None))
+            and bases
+            and (t := typing.get_args(bases[0]))
+            and t
+            and callable(t[0])
+        ):
+            return t[0]
+
+        return None
 
     @typing.overload
     def __get__(self, instance: None, owner: type) -> typing.Self: ...
@@ -136,7 +167,7 @@ class ConfigField[T]:
             vars(instance)[self._storage_name] = config.get(
                 self._storage_name,
                 namespace,
-                default=self._default,
+                default=self.default() if callable(self.default) else self.default,
             )
 
         return vars(instance)[self._storage_name]
@@ -247,6 +278,81 @@ class BoundedConfigField[T: Comparable](ConfigField[T]):
         return value
 
 
+class CSVConfigField[T](ConfigField[tuple[T, ...]]):
+    """Parse a config field or environment variable as a CSV.
+
+    Parameters
+    ----------
+    name : str | None, optional
+        The name of the attribute in the configuration file that stores the configuration value.
+        By default, the name of the variable to which the descriptor is attached will be the name.
+    namespace : str | None, optional
+        The namespace in the configuration file to look for the configuration value.
+        By default, it will use the qualified name of the module in which the field is being used.
+    env : str | None, optional
+        An environment variable that can be used to supply the configuration value.
+        Environment variables take precedence over values in a configuration file.
+    required : bool, optional
+        Whether or not to throw an error if the configuration value cannot be found.
+    default : Any, optional
+        The value to return if the value is not configured.
+
+    """
+
+    def __init__(
+        self,
+        *,
+        name: str | None = None,
+        namespace: str | None = None,
+        env: str | None = None,
+        required: bool = False,
+        default: Any = ...,
+    ) -> None:
+        super().__init__(
+            name=name,
+            namespace=namespace,
+            env=env,
+            required=required,
+            default=default,
+            parser=self._csv,
+        )
+
+    def _csv(self, value: ConfigValue) -> tuple[T, ...]:
+        """Return a parsed tuple of comma-separated values from the given value.
+
+        Parameters
+        ----------
+        value : ConfigValue
+            A string containing comma-separated tuple of values or a tuple of already parsed values.
+
+        Returns
+        -------
+        tuple[str]
+            A tuple of all values in the comma-separated string.
+
+        """
+        if isinstance(value, dict):
+            raise TypeError("Expected 'str | list[str]' but got 'dict'")
+
+        values: list[str]
+
+        match value:
+            case str():
+                values = [v.strip() for v in value.split(",")]
+            case _:
+                values = value
+
+        parser: ConfigProcessor[T] | None = typing.cast(
+            ConfigProcessor[T] | None,
+            self._get_parser(ignore_self=True),
+        )
+
+        if parser is None:
+            return typing.cast(tuple[T], values)
+
+        return tuple(parser(v) for v in values)
+
+
 class AIField(ConfigField[openai.AsyncOpenAI]):
     """A field that returns an 'openai.AsyncOpenAI' client.
 
@@ -268,6 +374,7 @@ class AIField(ConfigField[openai.AsyncOpenAI]):
             namespace="alfred.openai",
             env="OPENAI_API_KEY",
             required=required,
+            parser=None,
         )
 
     @typing.overload
@@ -303,7 +410,7 @@ class AIField(ConfigField[openai.AsyncOpenAI]):
         return vars(instance)[self._storage_name]
 
 
-feature.Feature.register_field_to_annotation("openai.AsyncOpenAI", AIField)
+autofields.AutoFields.register_field_to_annotation("openai.AsyncOpenAI", AIField)
 
 
 class FeatureField(ABC):
@@ -401,7 +508,7 @@ class ExtrasField(FeatureField):
         super().__init_subclass__()
 
         if annotation := getattr(subclass, "MAPPED_ANNOTATION", None):
-            feature.Feature.register_field_to_annotation(annotation, subclass)
+            autofields.AutoFields.register_field_to_annotation(annotation, subclass)
 
     def __init__(self, name: str | None = None) -> None:
         self._extras_name = name
@@ -458,4 +565,5 @@ class StaffField(ExtrasField):
     MAPPED_ANNOTATION: str = "alfred.db.Staff"
 
     def __init__(self) -> None:
+        super().__init__("staff")
         super().__init__("staff")
