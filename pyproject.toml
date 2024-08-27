@@ -8,15 +8,16 @@ readme = "README.md"
 license = { text = "MIT" }
 dependencies = [
     "py-cord[speed,voice]>=2.6.0",
-    "openai>=1.41.0",
+    "openai>=1.42.0",
     "python-dotenv>=1.0.1",
     "structlog>=24.4.0",
-    "aiohttp[speedups]>=3.10.4",
+    "aiohttp[speedups]>=3.10.5",
     "pyyaml>=6.0.2",
     "tortoise-orm>=0.21.6",
     "aerich>=0.7.2",
-    "fastapi>=0.112.1",
+    "fastapi>=0.112.2",
     "hypercorn[uvloop]>=0.17.3",
+    "async-lru>=2.0.4",
 ]
 
 [tool.pdm.dev-dependencies]
@@ -55,6 +56,7 @@ ignore = [
     "G004",
     "PLR0911",
     "PYI034",
+    "TCH001",
     "TCH004",
     "TD002",
     "TD003",
@@ -82,6 +84,7 @@ pre_debug = { shell = "bash -c '{pdm} install &> /dev/null'" }
 debug = { cmd = "alfred", env = { LOG_LEVEL = "DEBUG" }, env_file = ".env" }
 pre_pdb = { shell = "bash -c '{pdm} install &> /dev/null'" }
 pdb = { cmd = "python -m pdb src/alfred/cli.py", env_file = ".env" }
+shell = "{pdm} run bpython"
 
 lint = "make lint"
 check-static = "make static-analysis"
