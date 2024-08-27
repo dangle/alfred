@@ -21,6 +21,7 @@ import asyncio
 import json
 import typing
 from collections import defaultdict
+from typing import Annotated
 
 import discord
 import openai
@@ -77,20 +78,17 @@ class Chat(feature.Feature):
 
     #: The chat service model to use when responding to users.
     #: Defaults to GPT-4o.
-    model = fields.ConfigField[str](
-        namespace="alfred.openai",
-        env="CHATGPT_MODEL",
-        default=ChatGPTModels.GPT_4O,
-    )
+    model: Annotated[
+        str,
+        fields.ConfigField[str](namespace="alfred.openai", env="CHATGPT_MODEL"),
+    ] = ChatGPTModels.GPT_4O
 
     #: A value between 0 and 1 describing how creative the chat service should be when answering.
     #: Higher values are more creative.
-    temperature = fields.BoundedConfigField[float](
-        parser=float,
-        default=0.2,
-        lower_bound=0,
-        upper_bound=1,
-    )
+    temperature: Annotated[
+        float,
+        fields.BoundedConfigField[float](namespace="alfred.openai", lower_bound=0, upper_bound=1),
+    ] = 0.2
 
     #: The intents required by this feature.
     #: This requires the priviledged intents in order to get access to server chat.

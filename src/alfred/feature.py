@@ -22,13 +22,14 @@ if typing.TYPE_CHECKING:
 
     from discord.ext.commands._types import Coro
 
+from alfred.autofields import AutoFields
 from alfred.logging import Canonical, canonical_event, register_canonical_type
 
 __all__ = (
     "ENTRY_POINT_GROUP",
     "CommandGroup",
     "Feature",
-    "FeatureMetaclass",
+    "FeatureMeta",
     "FeatureRef",
     "SlashCommand",
     "command",
@@ -44,58 +45,13 @@ ENTRY_POINT_GROUP: str = "alfred.features"
 
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
-#: Necessary to make features usable with protocols.
+
+#: Necessary to make metaclasses usable with protocols.
 _ProtocolMeta: type = abc.ABCMeta if typing.TYPE_CHECKING else type(typing.Protocol)
 
 
-class FeatureMetaclass(discord.CogMeta, _ProtocolMeta, abc.ABCMeta):
+class FeatureMeta(discord.CogMeta, _ProtocolMeta, type):
     """A metaclass that adds stores the feature name, bot, and guild_ids on a class."""
-
-    def __new__(
-        metacls: type[FeatureMetaclass],  # noqa: N804
-        name: str,
-        bases: tuple[type],
-        classdict: dict[str, Any],
-    ) -> FeatureMetaclass:
-        """Create a new metaclass that enhances 'CogMeta'.
-
-        Parameters
-        ----------
-        metacls : type[FeatureMetaclass]
-            The type of the new class.
-        name : str
-            The name of the new class.
-        bases : tuple[type]
-            All base classes for the new class.
-        classdict : dict[str, Any]
-            Class attributes to add to the new class.
-
-        Returns
-        -------
-        FeatureMetaclass
-            The new class that was created.
-
-        """
-        classdict["__feature_name__"] = name
-
-        # Tell mypy that this is a new instance of 'Feature' and not an instance of whatever is
-        # returned by 'super().__new__'.
-        # We have to put quotations on "Feature" because Sphinx does not handle the forward
-        # reference properly despite importing annotations from __future__.
-        cls = typing.cast(type["Feature"], super().__new__(metacls, name, bases, classdict))
-
-        for attr, value in inspect.get_annotations(cls, eval_str=True).items():
-            if attr not in classdict and (
-                field := cls.get_field_by_annotation(f"{value.__module__}.{value.__qualname__}")
-            ):
-                field_instance = field()
-
-                if hasattr(field_instance, "__set_name__"):
-                    field_instance.__set_name__(cls, attr)
-
-                setattr(cls, attr, field_instance)
-
-        return cls
 
     def __call__(
         cls,
@@ -130,6 +86,7 @@ class FeatureMetaclass(discord.CogMeta, _ProtocolMeta, abc.ABCMeta):
 
         self = super().__call__(*args, **kwargs)
         self._Feature__extras = extras
+        self.__feature_name__ = cls.__name__
 
         if guild_ids := extras.get("guild_ids"):
             for cmd in self.get_commands():
@@ -147,13 +104,12 @@ class FeatureMetaclass(discord.CogMeta, _ProtocolMeta, abc.ABCMeta):
         return self
 
 
-class Feature(Cog, Canonical, metaclass=FeatureMetaclass):
+class Feature(Cog, Canonical, AutoFields, metaclass=FeatureMeta):
     """A 'Cog' that stores the name and bot and injects 'guild_ids' into commands."""
 
     __feature_name__: str
     _Feature__extras: dict[str, Any]
 
-    _field_registry: typing.ClassVar[dict[str, type]] = {}
     intents: discord.Intents = discord.Intents.none()
 
     @classmethod
@@ -208,40 +164,6 @@ class Feature(Cog, Canonical, metaclass=FeatureMetaclass):
             },
         )
         return loggable
-
-    @classmethod
-    def register_field_to_annotation(cls, annotation: str, field: type) -> None:
-        """Use the registered field to replace class attributes with the given annotation.
-
-        This will not replace class attributes if they are assigned a value.
-
-        Parameters
-        ----------
-        annotation : str
-            The annotation to look for on new 'Feature' objects.
-        field : type
-            The field to assign to the class attribute
-
-        """
-        cls._field_registry[annotation] = field
-
-    @classmethod
-    def get_field_by_annotation(cls, annotation: str) -> type | None:
-        """Get a registered field for an annotation.
-
-        Parameters
-        ----------
-        annotation : str
-            An annotation attached to a class attribute to be replaced with a field.
-
-        Returns
-        -------
-        type | None
-            If a field type has been registered for the given annotation, that field type will be
-            returned.
-
-        """
-        return cls._field_registry.get(annotation, None)
 
 
 class FeatureRef(typing.NamedTuple):
