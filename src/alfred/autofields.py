@@ -11,7 +11,7 @@ _AnnotatedType: type = type(typing.Annotated[typing.Any, typing.Any])
 
 
 class AutoFields:
-    """A base class for classes to use the AutoFieldsMeta metaclass automatically."""
+    """A base class for classes to automatically use fields based on type annotations."""
 
     _field_registry: typing.ClassVar[dict[str, type]] = {}
 

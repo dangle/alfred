@@ -12,11 +12,9 @@ import structlog
 import uvloop
 from tortoise import Tortoise, transactions
 
-from alfred import api
-from alfred import bot as bot_
-from alfred import config, db
+from alfred import api, config
 from alfred import exceptions as exc
-from alfred import feature, fields, logging, translation
+from alfred import feature, fields, logging, models, translation
 from alfred.autofields import AutoFields
 from alfred.logging import Canonical
 from alfred.translation import gettext as _
@@ -219,7 +217,7 @@ class Manor(Canonical, AutoFields):
             await Tortoise.init(
                 db_url=self.db_url,
                 modules={
-                    "models": ("alfred.db", "aerich.models", *feature_modules),
+                    "models": ("alfred.models", "aerich.models", *feature_modules),
                 },
             )
         finally:
@@ -229,8 +227,9 @@ class Manor(Canonical, AutoFields):
             await Tortoise.generate_schemas()
 
             async with transactions.in_transaction():
-                features: list[db.Feature] = [
-                    (await db.Feature.get_or_create(name=feature))[0] for feature in self._features
+                features: list[models.Feature] = [
+                    (await models.Feature.get_or_create(name=feature))[0]
+                    for feature in self._features
                 ]
 
                 if self.ephemeral and self.discord_token:
@@ -271,36 +270,43 @@ class Manor(Canonical, AutoFields):
             The ID of the staff member to deploy.
 
         """
-        staff: db.Staff = await db.Staff.get(id=staff_id)
+        conf: models.StaffConfig = await models.Staff.Config.get(id=staff_id)
 
         async def runner() -> None:
             bot_feature_names: tuple[str] = tuple(
-                feature.name for feature in await staff.features if feature.name in self._features
+                feature.name for feature in await conf.features if feature.name in self._features
             )
             bot_feature_classes: tuple[type[feature.Feature], ...] = tuple(
                 self._features[feature].cls for feature in bot_feature_names
             )
             intents: Intents = feature.get_intents(*bot_feature_classes)
-            guild_ids: list[str] | None = list(await staff.servers or self.guild_ids) or None
+            guild_ids: list[str] | None = list(await conf.servers or self.guild_ids) or None
+            staff = models.Staff(conf, intents=intents)
 
-            try:
-                bot = bot_.Bot(intents=intents)
-                for cls in bot_feature_classes:
+            for cls in bot_feature_classes:
+                try:
+                    await _log.ainfo("ADDING COG", cog=cls.__name__)
                     cls(
                         extra__manor=self,
-                        extra__bot=bot,
-                        extra__guild_ids=guild_ids,
                         extra__staff=staff,
+                        extra__guild_ids=guild_ids,
+                    )
+                except Exception as e:
+                    await _log.aerror(
+                        f"An error occurred while loading feature '{cls.__name__}'.",
+                        exc_info=e,
                     )
 
-                await _log.ainfo(f"Starting bot for staff: {staff.id}")
-                await bot.start(staff.discord_token)
+            await _log.ainfo(f"Starting bot for staff: {staff!r}")
+
+            try:
+                await staff.start(conf.discord_token)
             finally:
-                if not bot.is_closed():
-                    await bot.close()
+                if not staff.is_closed():
+                    await staff.close()
 
         async with self._deployed_staff_lock:
-            await _log.ainfo(f"Deploying {staff!r}")
+            await _log.ainfo(f"Deploying {conf!r}")
             self._deployed_staff[staff_id] = asyncio.create_task(runner())
 
     async def recall(self, staff_id: uuid.UUID | str) -> None:
@@ -333,7 +339,7 @@ class Manor(Canonical, AutoFields):
         self._stop_event.clear()
         self._start_event.clear()
 
-    async def _populate_ephemeral_db(self, *features: db.Feature) -> None:
+    async def _populate_ephemeral_db(self, *features: models.Feature) -> None:
         """Populate an ephemeral database with a default bot.
 
         Parameters
@@ -354,7 +360,7 @@ class Manor(Canonical, AutoFields):
                 f"An ephemeral configuration requires {_DISCORD_NAMESPACE}.token to be configured.",
             )
 
-        staff = await db.Staff.create(
+        staff = await models.Staff.Config.create(
             discord_token=self.discord_token,
             name=self.ephemeral_name,
             nick=self.ephemeral_nick,
@@ -370,7 +376,7 @@ class Manor(Canonical, AutoFields):
         await _log.ainfo("Deploying all staff set to deploy on load.")
 
         async with transactions.in_transaction():
-            async for staff in db.Staff.all():
+            async for staff in models.Staff.Config.all():
                 if staff.load_on_start:
                     await self.deploy(staff.id)
 

@@ -20,14 +20,6 @@ alfred.api module
    :undoc-members:
    :show-inheritance:
 
-alfred.bot module
------------------
-
-.. automodule:: alfred.bot
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 alfred.cli module
 -----------------
 
@@ -44,10 +36,10 @@ alfred.config module
    :undoc-members:
    :show-inheritance:
 
-alfred.db module
-----------------
+alfred.models module
+--------------------
 
-.. automodule:: alfred.db
+.. automodule:: alfred.models
    :members:
    :undoc-members:
    :show-inheritance:

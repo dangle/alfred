@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import abc
 import importlib
 import inspect
 import sys
@@ -19,17 +18,18 @@ from discord.utils import MISSING
 
 if typing.TYPE_CHECKING:
     from types import ModuleType
+    from typing import Self
 
     from discord.ext.commands._types import Coro
 
 from alfred.autofields import AutoFields
 from alfred.logging import Canonical, canonical_event, register_canonical_type
+from alfred.typing import ProtocolMeta
 
 __all__ = (
     "ENTRY_POINT_GROUP",
     "CommandGroup",
     "Feature",
-    "FeatureMeta",
     "FeatureRef",
     "SlashCommand",
     "command",
@@ -46,49 +46,46 @@ ENTRY_POINT_GROUP: str = "alfred.features"
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
-#: Necessary to make metaclasses usable with protocols.
-_ProtocolMeta: type = abc.ABCMeta if typing.TYPE_CHECKING else type(typing.Protocol)
+class _CogProtocolMeta(discord.CogMeta, ProtocolMeta):
+    """A metaclass that makes CogMeta compatible with 'Protocol' metaclasses."""
 
 
-class FeatureMeta(discord.CogMeta, _ProtocolMeta, type):
-    """A metaclass that adds stores the feature name, bot, and guild_ids on a class."""
+class Feature(Cog, Canonical, AutoFields, metaclass=_CogProtocolMeta):
+    """A 'Cog' that stores the name and bot and injects 'guild_ids' into commands."""
 
-    def __call__(
-        cls,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Feature:
-        """Return a new instance of the type attached to 'bot'.
+    __feature_name__: str
+    _Feature__extras: dict[str, Any]
+
+    intents: discord.Intents = discord.Intents.none()
+
+    def __new__(cls, *_: Any, **kwargs: Any) -> Self:
+        """Return a new instance of the type attached and attach it to a bot.
 
         If 'guild_ids' is given then any commands that do not already have 'guild_ids' set and are
         not marked as 'is_global' will be assigned 'guild_ids'.
 
         Parameters
         ----------
-        args : Any
-            Positional arguments to pass to the 'Feature' '__init__'.
         kwargs : Any
-            Keyword arguments to pass to the 'Feature' '__init__'.
+            Keyword arguments that may contain extra 'Feature' information.
 
         Returns
         -------
         Any
-            A new instance of the 'Feature' that has been attached to 'bot'.
+            A new instance of the 'Feature' that has been attached to a bot.
 
         """
         extra_prefix: str = "extra__"
-        prefix_len: int = len(extra_prefix)
         extras: dict[str, Any] = {
-            k[prefix_len:]: kwargs.pop(k)
+            k.removeprefix(extra_prefix): kwargs.pop(k)
             for k in tuple(kwargs.keys())
             if k.startswith(extra_prefix)
         }
 
-        self = super().__call__(*args, **kwargs)
+        self = super().__new__(cls)
         self._Feature__extras = extras
-        self.__feature_name__ = cls.__name__
 
-        if guild_ids := extras.get("guild_ids"):
+        if guild_ids := extras.pop("guild_ids", None):
             for cmd in self.get_commands():
                 if (
                     not getattr(cmd, "is_global", False)
@@ -98,19 +95,10 @@ class FeatureMeta(discord.CogMeta, _ProtocolMeta, type):
                 ):
                     cmd.guild_ids = guild_ids
 
-        if bot := extras.get("bot"):
-            bot.add_cog(self)
+        if staff := extras.get("staff"):
+            staff.add_cog(self)
 
         return self
-
-
-class Feature(Cog, Canonical, AutoFields, metaclass=FeatureMeta):
-    """A 'Cog' that stores the name and bot and injects 'guild_ids' into commands."""
-
-    __feature_name__: str
-    _Feature__extras: dict[str, Any]
-
-    intents: discord.Intents = discord.Intents.none()
 
     @classmethod
     def name(cls) -> str:
@@ -150,6 +138,27 @@ class Feature(Cog, Canonical, AutoFields, metaclass=FeatureMeta):
             f"extras={self._Feature__extras!r}"
             ")"
         )
+
+    def __getitem__(self, name: str) -> Any:
+        """Get 'Feature' extras.
+
+        Parameters
+        ----------
+        name : str
+            The name of the extra data stored in the 'Feature'.
+
+        Returns
+        -------
+        Any
+            The stored extra.
+
+        Raises
+        ------
+        KeyError
+            Raised if no extra with the given name exists.
+
+        """
+        return self._Feature__extras[name]
 
     @typing.override
     @property
