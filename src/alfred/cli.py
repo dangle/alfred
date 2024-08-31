@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from alfred.manor import Manor
+from alfred.services.manor import Manor
 
 __all__ = ("main",)
 

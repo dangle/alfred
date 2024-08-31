@@ -7,95 +7,19 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   alfred.chat
+   alfred.core
    alfred.features
+   alfred.services
+   alfred.util
 
 Submodules
 ----------
-
-alfred.api module
------------------
-
-.. automodule:: alfred.api
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 alfred.cli module
 -----------------
 
 .. automodule:: alfred.cli
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.config module
---------------------
-
-.. automodule:: alfred.config
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.models module
---------------------
-
-.. automodule:: alfred.models
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.exceptions module
-------------------------
-
-.. automodule:: alfred.exceptions
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.feature module
----------------------
-
-.. automodule:: alfred.feature
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.fields module
---------------------
-
-.. automodule:: alfred.fields
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.logging module
----------------------
-
-.. automodule:: alfred.logging
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.manor module
--------------------
-
-.. automodule:: alfred.manor
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.translation module
--------------------------
-
-.. automodule:: alfred.translation
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-alfred.typing module
---------------------
-
-.. automodule:: alfred.typing
    :members:
    :undoc-members:
    :show-inheritance:

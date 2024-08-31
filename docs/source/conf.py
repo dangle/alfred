@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 
-from alfred import config
+from alfred.core import config
 
 config.init()
 

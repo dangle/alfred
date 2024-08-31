@@ -22,26 +22,26 @@ from openai.types.chat import (
 )
 from openai.types.chat.chat_completion_message_tool_call_param import Function
 
-from alfred import fields
-from alfred.autofields import AutoFields
-from alfred.features.chat.constants import (
+from alfred.chat.constants import (
     NO_RESPONSE,
     NO_RESPONSE_SYSTEM_MESSAGE,
     RETRY_BAD_RESPONSES,
     TOOL_SYSTEM_MESSAGE,
 )
-from alfred.features.chat.context import MessageApplicationContext
-from alfred.features.chat.enum import ChatGPTModels, MessageRole, ResponseType, ToolParamType
-from alfred.features.chat.tools import get_tools
-from alfred.lock import Locked
+from alfred.chat.context import MessageApplicationContext
+from alfred.chat.enum import ChatGPTModels, MessageRole, ResponseType, ToolParamType
+from alfred.chat.tools import get_tools
+from alfred.core import fields
+from alfred.util.autofields import AutoFields
+from alfred.util.lock import Locked
 
 if typing.TYPE_CHECKING:
     from typing import Any, Literal
 
     from discord import Message
 
-    from alfred import models
-    from alfred.features.chat.tools import Tool
+    from alfred.chat.tools import Tool
+    from alfred.core import models
 
 
 _log: structlog.stdlib.BoundLogger = structlog.get_logger()

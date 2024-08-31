@@ -1,21 +1,21 @@
-alfred.features package
+alfred.services package
 =======================
 
 Submodules
 ----------
 
-alfred.features.chat module
----------------------------
+alfred.services.api module
+--------------------------
 
-.. automodule:: alfred.features.chat
+.. automodule:: alfred.services.api
    :members:
    :undoc-members:
    :show-inheritance:
 
-alfred.features.draw module
----------------------------
+alfred.services.manor module
+----------------------------
 
-.. automodule:: alfred.features.draw
+.. automodule:: alfred.services.manor
    :members:
    :undoc-members:
    :show-inheritance:
@@ -23,7 +23,7 @@ alfred.features.draw module
 Module contents
 ---------------
 
-.. automodule:: alfred.features
+.. automodule:: alfred.services
    :members:
    :undoc-members:
    :show-inheritance:

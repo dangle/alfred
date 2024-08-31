@@ -20,18 +20,26 @@ from __future__ import annotations
 import asyncio
 
 import discord
-import structlog
 from async_lru import alru_cache as async_cache
 from discord import Message
 
-from alfred import feature, models
-from alfred.features.chat.activities import THINKING, WAITING_FOR_CORRECTIONS
-from alfred.features.chat.client import ChatClient
-from alfred.features.chat.constants import MAX_REPLY_LEN, TIME_TO_WAIT_FOR_CORRECTIONS_S
+from alfred.chat import ChatClient
+from alfred.core import feature, models
+from alfred.util.translation import gettext as _
 
 __all__ = ("Chat",)
 
-_log: structlog.stdlib.BoundLogger = structlog.get_logger()
+
+#: The maximum length of a Discord message.
+_MAX_REPLY_LEN: int = 2000
+
+#: How long to listen for corrections from the user without requiring an explicit mention, in
+#: seconds.
+_TIME_TO_WAIT_FOR_CORRECTIONS_S: int = 60
+
+WAITING_FOR_CORRECTIONS = discord.CustomActivity(_("Waiting for corrections"))
+
+THINKING = discord.CustomActivity(_("Thinking"))
 
 
 class Chat(feature.Feature):
@@ -97,8 +105,8 @@ class Chat(feature.Feature):
             match response:
                 case str():
                     for chunk in (
-                        response[i : i + MAX_REPLY_LEN]
-                        for i in range(0, len(response), MAX_REPLY_LEN)
+                        response[i : i + _MAX_REPLY_LEN]
+                        for i in range(0, len(response), _MAX_REPLY_LEN)
                     ):
                         await message.reply(chunk)
                 case None:
@@ -111,7 +119,7 @@ class Chat(feature.Feature):
     async def wait_for_corrections(self) -> None:
         """Listen for the `on_waiting_for_corrections` event and set the bot activity."""
         async with self.staff.presence(activity=WAITING_FOR_CORRECTIONS):
-            await asyncio.sleep(TIME_TO_WAIT_FOR_CORRECTIONS_S)
+            await asyncio.sleep(_TIME_TO_WAIT_FOR_CORRECTIONS_S)
 
     @async_cache
     async def _must_respond(self, message: Message) -> bool:

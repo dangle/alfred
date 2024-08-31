@@ -27,13 +27,13 @@ import dotenv
 import structlog
 
 from alfred import __version__
-from alfred import exceptions as exc
-from alfred.exceptions import ConfigurationError, RequiredValueError
+from alfred.core import exceptions as exc
+from alfred.core.exceptions import ConfigurationError, RequiredValueError
 
 if typing.TYPE_CHECKING:
     from typing import Any, ClassVar, Self
 
-    from alfred.typing import ConfigProcessor
+    from alfred.util.typing import ConfigProcessor
 
 
 __all__ = (
