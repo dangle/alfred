@@ -40,8 +40,7 @@ if typing.TYPE_CHECKING:
 
     from discord import Message
 
-    from alfred import bot as bot_
-    from alfred import db
+    from alfred import models
     from alfred.features.chat.tools import Tool
 
 
@@ -68,10 +67,9 @@ class ChatClient(AutoFields):
         fields.BoundedConfigField[float](namespace="alfred.openai", lower_bound=0, upper_bound=1),
     ] = 0.2
 
-    def __init__(self, staff: db.Staff, bot: bot_.Bot) -> None:
-        self._staff: db.Staff = staff
-        self._bot: bot_.Bot = bot
-        self._tools: dict[str, Tool] = get_tools(self._bot.application_commands)
+    def __init__(self, staff: models.Staff) -> None:
+        self._staff: models.Staff = staff
+        self._tools: dict[str, Tool] = get_tools(self._staff.application_commands)
         self._history: dict[int, Locked[list[ChatCompletionMessageParam]]] = defaultdict(
             lambda: Locked([]),
         )
@@ -103,11 +101,11 @@ class ChatClient(AutoFields):
             The response if the chat service returned one; otherwise None.
 
         """
-        if message.author.id == self._bot.application_id:
+        if message.author.id == self._staff.application_id:
             await _log.adebug("Bot is the author of the message.", message=message)
             return None
 
-        author: str = self._bot.get_user_name(message.author)
+        author: str = self._staff.get_user_name(message.author)
 
         async with self._history[message.channel.id] as history:
             history.append(
@@ -148,7 +146,7 @@ class ChatClient(AutoFields):
         guild_id: int | None = (
             message.channel.guild.id if hasattr(message.channel, "guild") else None
         )
-        identity: db.Identity = await self._staff.get_identity(guild_id)
+        identity: models.Identity = await self._staff.get_identity(guild_id)
         return identity.description
 
     async def _get_chat_response_to_history(
@@ -293,7 +291,7 @@ class ChatClient(AutoFields):
         command = self._tools[function.name].command
 
         async with await MessageApplicationContext.new(
-            self._bot,
+            self._staff,
             message,
             delayed_send=True,
         ) as ctx:
@@ -402,7 +400,7 @@ class ChatClient(AutoFields):
             kwargs["temperature"] = self.temperature
 
         if "user" not in kwargs:
-            kwargs["user"] = self._bot.get_user_name(message.author)
+            kwargs["user"] = self._staff.get_user_name(message.author)
 
         response: ChatCompletion = await self.ai.chat.completions.create(**kwargs)
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import Protocol
 
 if typing.TYPE_CHECKING:
@@ -19,6 +19,7 @@ __all__ = (
     "ConfigProcessor",
     "ExitCode",
     "Presence",
+    "ProtocolMeta",
 )
 
 #: The allowed literals for the `argparse` action attribute.
@@ -61,3 +62,7 @@ class Comparable[T](Protocol):
     @abstractmethod
     def __lt__(self: T, other: T) -> bool:  # noqa: D105
         pass
+
+
+#: Necessary to make metaclasses usable with protocols.
+ProtocolMeta: type = ABCMeta if typing.TYPE_CHECKING else type(Protocol)

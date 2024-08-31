@@ -17,7 +17,7 @@ if typing.TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from typing import Any, Literal
 
-    from alfred import bot
+    from alfred import models
 
 __all__ = (
     "MessageApplicationContext",
@@ -76,7 +76,7 @@ class MessageApplicationContext(discord.ApplicationContext):
 
     Parameters
     ----------
-    bot : bot.Bot
+    bot : db.Bot
         The bot handling the `discord.Message`.
     interaction : Interaction
         The `Interaction` to pass to the parent constructor.
@@ -88,7 +88,7 @@ class MessageApplicationContext(discord.ApplicationContext):
 
     def __init__(
         self,
-        bot: bot.Bot,
+        bot: models.Staff,
         interaction: Interaction,
         message: discord.Message,
         *,
@@ -102,7 +102,7 @@ class MessageApplicationContext(discord.ApplicationContext):
     @classmethod
     async def new(
         cls,
-        bot: bot.Bot,
+        bot: models.Staff,
         message: discord.Message,
         *,
         delayed_send: bool = False,
@@ -111,7 +111,7 @@ class MessageApplicationContext(discord.ApplicationContext):
 
         Parameters
         ----------
-        bot : bot.Bot
+        bot : db.Bot
             The bot handling the `discord.Message`.
         message : discord.Message
             The `discord.Message` being used to create a new `discord.ApplicationContext`.
@@ -174,7 +174,7 @@ class MessageApplicationContext(discord.ApplicationContext):
     @classmethod
     def _get_user(
         cls,
-        bot: bot.Bot,
+        bot: models.Staff,
         user: discord.User | discord.Member,
     ) -> discord.types.user.User:
         """Convert `user` to a format suitable for `Interaction`.
@@ -183,7 +183,7 @@ class MessageApplicationContext(discord.ApplicationContext):
 
         Parameters
         ----------
-        bot : bot.Bot
+        bot : db.Bot
             The bot to use to retrieve a `discord.User` from a `discord.Member`.
         user : discord.User | discord.Member
             The message author.

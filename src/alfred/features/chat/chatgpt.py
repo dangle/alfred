@@ -24,7 +24,7 @@ import structlog
 from async_lru import alru_cache as async_cache
 from discord import Message
 
-from alfred import bot, db, feature
+from alfred import feature, models
 from alfred.features.chat.activities import THINKING, WAITING_FOR_CORRECTIONS
 from alfred.features.chat.client import ChatClient
 from alfred.features.chat.constants import MAX_REPLY_LEN, TIME_TO_WAIT_FOR_CORRECTIONS_S
@@ -38,10 +38,7 @@ class Chat(feature.Feature):
     """Manages chat interactions and commands in the bot."""
 
     #: The bot to which this feature was attached.
-    bot: bot.Bot
-
-    #: The staff member this bot represents.
-    staff: db.Staff
+    staff: models.Staff
 
     #: The intents required by this feature.
     #: This requires the privileged intents in order to get access to server chat.
@@ -56,17 +53,17 @@ class Chat(feature.Feature):
     @feature.listener("on_ready", once=True)
     async def init(self) -> None:
         """Create the 'ChatClient' instance."""
-        self._client = ChatClient(self.staff, self.bot)
+        self._client = ChatClient(self.staff)
 
     @feature.listener("on_ready", once=True)
     async def set_server_profiles(self) -> None:
         """Set the nickname for the bot in each guild on ready."""
-        for guild in self.bot.guilds:
+        for guild in self.staff.guilds:
             identity = await self.staff.get_identity(guild.id)
             nick: str = str(identity)
 
-            if nick and self.bot.application_id is not None:
-                member: discord.Member | None = guild.get_member(self.bot.application_id)
+            if nick and self.staff.application_id is not None:
+                member: discord.Member | None = guild.get_member(self.staff.application_id)
 
                 if member:
                     await member.edit(nick=nick)
@@ -88,9 +85,9 @@ class Chat(feature.Feature):
 
         """
         must_respond: bool = await self._must_respond(message)
-        waiting_for_corrections: bool = WAITING_FOR_CORRECTIONS in self.bot.activities
+        waiting_for_corrections: bool = WAITING_FOR_CORRECTIONS in self.staff.activities
 
-        async with self.bot.presence(activity=THINKING):
+        async with self.staff.presence(activity=THINKING):
             response: str | None = await self._client.update(
                 message,
                 must_respond=must_respond,
@@ -108,12 +105,12 @@ class Chat(feature.Feature):
                     return
 
         if must_respond:
-            self.bot.dispatch("waiting_for_corrections")
+            self.staff.dispatch("waiting_for_corrections")
 
     @feature.listener("on_waiting_for_corrections")
     async def wait_for_corrections(self) -> None:
         """Listen for the `on_waiting_for_corrections` event and set the bot activity."""
-        async with self.bot.presence(activity=WAITING_FOR_CORRECTIONS):
+        async with self.staff.presence(activity=WAITING_FOR_CORRECTIONS):
             await asyncio.sleep(TIME_TO_WAIT_FOR_CORRECTIONS_S)
 
     @async_cache
@@ -140,7 +137,7 @@ class Chat(feature.Feature):
         if isinstance(message, discord.DMChannel):
             return True
 
-        if any(m.id == self.bot.application_id for m in message.mentions):
+        if any(m.id == self.staff.application_id for m in message.mentions):
             return True
 
         name: str = str(await self.staff.get_identity(message.channel.id)).lower()

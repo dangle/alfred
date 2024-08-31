@@ -25,8 +25,8 @@ import discord
 import openai
 import structlog
 
-from alfred import bot, feature
 from alfred import exceptions as exc
+from alfred import feature, models
 from alfred.translation import gettext as _
 
 if typing.TYPE_CHECKING:
@@ -88,7 +88,7 @@ class Draw(feature.Feature):
     ai: openai.AsyncOpenAI
 
     #: The bot to which this feature is attached.
-    bot: bot.Bot
+    bot: models.Staff
 
     #: The intents required by this feature.
     intents: discord.Intents = discord.Intents(guilds=True)

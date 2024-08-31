@@ -31,7 +31,7 @@ from alfred import exceptions as exc
 from alfred.exceptions import ConfigurationError, RequiredValueError
 
 if typing.TYPE_CHECKING:
-    from typing import Any, ClassVar
+    from typing import Any, ClassVar, Self
 
     from alfred.typing import ConfigProcessor
 
@@ -154,72 +154,8 @@ class _ConfigAttribute[T](typing.NamedTuple):
         return ".".join(self.qualified_name[:-1])
 
 
-class _ConfigMetaclass(type):
-    """Ensures that classes are singletons and must be initialized before use."""
-
-    __instances: ClassVar[dict[_ConfigMetaclass, Any]] = {}
-
-    def __call__(cls: _ConfigMetaclass) -> Any:
-        """Return the singleton instance of the class.
-
-        Parameters
-        ----------
-        cls : _ConfigMetaclass
-            The class to which the singleton instance belongs.
-
-        Returns
-        -------
-        Any
-            An instance of the class 'cls'.
-
-        Raises
-        ------
-        exc.ConfigurationError
-            Raised if the class 'cls' has not been initialized by calling 'cls.init()'.
-
-        """
-        if cls in cls.__instances:
-            return cls.__instances[cls]
-
-        raise exc.ConfigurationError(
-            f"Class '{cls.__qualname__}' has not been initialized. "
-            f"Call '{cls.__qualname__}.init()' first.",
-        )
-
-    def init(cls: _ConfigMetaclass, *args: Any, **kwargs: Any) -> Any:
-        """Initialize the new Config class and store it as a singleton.
-
-        Parameters
-        ----------
-        cls : _ConfigMetaclass
-            The class to be initialized.
-        args : Any
-            Positional arguments to pass to 'cls.__init__'.
-        kwargs : Any
-            Keyword arguments to pass to 'cls.__init__'.
-
-        Returns
-        -------
-        Any
-            The singleton instance of the class 'cls'.
-
-        Raises
-        ------
-        exc.ConfigurationError
-            Raised if an instance of 'cls' has already been created and initialized.
-
-        """
-        if cls in cls.__instances:
-            raise exc.ConfigurationError(
-                f"Class '{cls.__qualname__}' has already been initialized.",
-            )
-
-        cls.__instances[cls] = super().__call__(*args, **kwargs)
-        return cls.__instances[cls]
-
-
 @typing.final
-class Config(metaclass=_ConfigMetaclass):
+class Config:
     """A global configuration singleton to be used by the application and any spawned bots.
 
     Parameters
@@ -233,6 +169,9 @@ class Config(metaclass=_ConfigMetaclass):
         "_config",
         "_valid_attrs",
     )
+
+    #: The singleton instance of the class.
+    __instance: ClassVar[Config | None] = None
 
     #: The registry of all configurable values.
     _registry: ClassVar[dict[tuple[str, ...], _ConfigAttribute]] = {}
@@ -255,6 +194,60 @@ class Config(metaclass=_ConfigMetaclass):
                 raise RequiredValueError(name=attr.name, namespace=attr.namespace)
 
         Config._initialized = True
+
+    def __new__(cls) -> Self:
+        """Return the initialized singleton 'Config' instance.
+
+        Returns
+        -------
+        Self
+            The singleton initialized 'Config' instance.
+
+        Raises
+        ------
+        exc.ConfigurationError
+            Raised if 'Config.init' has not been called.
+
+        """
+        if cls.__instance is None:
+            raise exc.ConfigurationError(
+                f"Class '{cls.__qualname__}' has not been initialized. "
+                f"Call '{cls.__qualname__}.init()' first.",
+            )
+
+        return cls.__instance
+
+    @classmethod
+    def init(cls, *args: Any, **kwargs: Any) -> Any:
+        """Initialize the new Config class and store it as a singleton.
+
+        Parameters
+        ----------
+        args : Any
+            Positional arguments to pass to 'cls.__init__'.
+        kwargs : Any
+            Keyword arguments to pass to 'cls.__init__'.
+
+        Returns
+        -------
+        Any
+            The singleton instance of the class 'cls'.
+
+        Raises
+        ------
+        exc.ConfigurationError
+            Raised if an instance of 'cls' has already been created and initialized.
+
+        """
+        if cls.__instance is not None:
+            raise exc.ConfigurationError(
+                f"Class '{cls.__qualname__}' has already been initialized.",
+            )
+
+        cls.__instance = super().__new__(Config)
+        cls.__instance.__init__(*args, **kwargs)  # type: ignore[misc]
+
+        return cls.__instance
 
     @functools.cache
     def __getattr__(self, name: str) -> Any:
@@ -405,11 +398,6 @@ class Config(metaclass=_ConfigMetaclass):
 
         """
         if attr.qualified_name in self._config:
-            _log.warning(
-                "Value already exists for configuration value. Not overwriting it.",
-                namespace=attr.qualified_name,
-                value=self._config[attr.qualified_name],
-            )
             return
 
         if attr.env and attr.env in os.environ:

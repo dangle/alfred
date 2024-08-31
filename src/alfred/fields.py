@@ -20,7 +20,6 @@ if typing.TYPE_CHECKING:
 
 __all__ = (
     "AIField",
-    "BotField",
     "BoundedConfigField",
     "ConfigField",
     "CSVConfigField",
@@ -538,16 +537,7 @@ class ExtrasField(FeatureField):
         if instance is None:
             return self
 
-        return instance._Feature__extras[self._extras_name or self._storage_name]  # noqa: SLF001
-
-
-class BotField(ExtrasField):
-    """Sets the bot attribute from the 'feature.Feature' extras."""
-
-    MAPPED_ANNOTATION: str = "alfred.bot.Bot"
-
-    def __init__(self) -> None:
-        super().__init__("bot")
+        return instance[self._extras_name or self._storage_name]
 
 
 class ManorField(ExtrasField):
@@ -562,8 +552,7 @@ class ManorField(ExtrasField):
 class StaffField(ExtrasField):
     """Sets the staff attribute from the 'feature.Feature' extras."""
 
-    MAPPED_ANNOTATION: str = "alfred.db.Staff"
+    MAPPED_ANNOTATION: str = "alfred.models.Staff"
 
     def __init__(self) -> None:
-        super().__init__("staff")
         super().__init__("staff")
