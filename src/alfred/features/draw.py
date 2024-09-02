@@ -25,9 +25,9 @@ import discord
 import openai
 import structlog
 
-from alfred import exceptions as exc
-from alfred import feature, models
-from alfred.translation import gettext as _
+from alfred.core import exceptions as exc
+from alfred.core import feature, models
+from alfred.util.translation import gettext as _
 
 if typing.TYPE_CHECKING:
     from typing import Literal

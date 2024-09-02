@@ -8,7 +8,7 @@ import typing
 if typing.TYPE_CHECKING:
     from typing import Any
 
-    from alfred.typing import ExitCode
+    from alfred.util.typing import ExitCode
 
 __all__ = (
     "BotError",

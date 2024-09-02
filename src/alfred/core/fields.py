@@ -10,13 +10,14 @@ from typing import Any
 
 import openai
 
-from alfred import autofields, config, feature
-from alfred.typing import Comparable, ConfigProcessor, ConfigValue
+from alfred.core import config, feature
+from alfred.util import autofields
+from alfred.util.typing import Comparable, ConfigProcessor, ConfigValue
 
 if typing.TYPE_CHECKING:
     from types import EllipsisType
 
-    from alfred import feature
+    from alfred.core import feature
 
 __all__ = (
     "AIField",
@@ -543,7 +544,7 @@ class ExtrasField(FeatureField):
 class ManorField(ExtrasField):
     """Sets the manor attribute from the 'feature.Feature' extras."""
 
-    MAPPED_ANNOTATION: str = "alfred.manor.Manor"
+    MAPPED_ANNOTATION: str = "alfred.services.manor.Manor"
 
     def __init__(self) -> None:
         super().__init__("manor")
@@ -552,7 +553,7 @@ class ManorField(ExtrasField):
 class StaffField(ExtrasField):
     """Sets the staff attribute from the 'feature.Feature' extras."""
 
-    MAPPED_ANNOTATION: str = "alfred.models.Staff"
+    MAPPED_ANNOTATION: str = "alfred.core.models.Staff"
 
     def __init__(self) -> None:
         super().__init__("staff")

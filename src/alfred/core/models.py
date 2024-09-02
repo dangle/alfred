@@ -13,8 +13,8 @@ import structlog
 from tortoise import fields
 from tortoise.models import Model, ModelMeta
 
-from alfred.logging import Canonical, canonical
-from alfred.typing import Presence, ProtocolMeta
+from alfred.util.logging import Canonical, canonical
+from alfred.util.typing import Presence, ProtocolMeta
 
 if typing.TYPE_CHECKING:
     from collections.abc import AsyncIterator

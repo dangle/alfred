@@ -17,7 +17,7 @@ if typing.TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
     from typing import Any, Literal
 
-    from alfred import models
+    from alfred.core import models
 
 __all__ = (
     "MessageApplicationContext",

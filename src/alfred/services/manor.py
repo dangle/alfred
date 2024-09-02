@@ -12,12 +12,14 @@ import structlog
 import uvloop
 from tortoise import Tortoise, transactions
 
-from alfred import api, config
-from alfred import exceptions as exc
-from alfred import feature, fields, logging, models, translation
-from alfred.autofields import AutoFields
-from alfred.logging import Canonical
-from alfred.translation import gettext as _
+from alfred.core import config
+from alfred.core import exceptions as exc
+from alfred.core import feature, fields, models
+from alfred.services import api
+from alfred.util import logging, translation
+from alfred.util.autofields import AutoFields
+from alfred.util.logging import Canonical
+from alfred.util.translation import gettext as _
 
 if typing.TYPE_CHECKING:
     import uuid
@@ -26,7 +28,7 @@ if typing.TYPE_CHECKING:
 
     from discord import Intents
 
-    from alfred.feature import FeatureRef
+    from alfred.core.feature import FeatureRef
 
 
 __all__ = ("Manor",)
@@ -217,7 +219,7 @@ class Manor(Canonical, AutoFields):
             await Tortoise.init(
                 db_url=self.db_url,
                 modules={
-                    "models": ("alfred.models", "aerich.models", *feature_modules),
+                    "models": ("alfred.core.models", "aerich.models", *feature_modules),
                 },
             )
         finally:

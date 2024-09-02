@@ -22,9 +22,9 @@ if typing.TYPE_CHECKING:
 
     from discord.ext.commands._types import Coro
 
-from alfred.autofields import AutoFields
-from alfred.logging import Canonical, canonical_event, register_canonical_type
-from alfred.typing import ProtocolMeta
+from alfred.util.autofields import AutoFields
+from alfred.util.logging import Canonical, canonical_event, register_canonical_type
+from alfred.util.typing import ProtocolMeta
 
 __all__ = (
     "ENTRY_POINT_GROUP",

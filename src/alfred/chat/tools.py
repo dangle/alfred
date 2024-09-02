@@ -12,7 +12,7 @@ import structlog
 from openai.types.chat import ChatCompletionToolParam
 from openai.types.shared_params import FunctionDefinition
 
-from alfred.features.chat.enum import ToolParamType
+from alfred.chat.enum import ToolParamType
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterable
