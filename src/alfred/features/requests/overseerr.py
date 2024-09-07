@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import discord
-import openai
 import structlog
 
 from alfred.core import feature, models
@@ -17,15 +16,12 @@ _log: structlog.stdlib.BoundLogger = structlog.get_logger()
 class Overseerr(feature.Feature):
     """Manages AI art interactions and commands in the bot."""
 
-    #: An asynchronous OpenAI client.
-    ai: openai.AsyncOpenAI
-
     #: The bot to which this feature is attached.
-    bot: models.Staff
+    staff: models.Staff
 
     #: The intents required by this feature.
     intents: discord.Intents = discord.Intents(guilds=True)
 
     @request_command.command()
-    async def request_movie(self) -> None:
+    async def request_movie(self, ctx: discord.ApplicationContext, *, movie: str) -> None:
         pass
