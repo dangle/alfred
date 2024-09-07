@@ -11,4 +11,4 @@ __all__ = (
 __project_package__: str = __name__
 
 #: The current version of the project.
-__version__: str = "v2024.08.0"
+__version__: str = "v2024.09.0"
