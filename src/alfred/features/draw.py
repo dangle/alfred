@@ -88,7 +88,7 @@ class Draw(feature.Feature):
     ai: openai.AsyncOpenAI
 
     #: The bot to which this feature is attached.
-    bot: models.Staff
+    staff: models.Staff
 
     #: The intents required by this feature.
     intents: discord.Intents = discord.Intents(guilds=True)
@@ -143,7 +143,7 @@ class Draw(feature.Feature):
             If this is not specified it will default to "standard".
 
         """
-        async with self.bot.presence(activity=_DrawPresence.DALL_E_3.value):
+        async with self.staff.presence(activity=_DrawPresence.DALL_E_3.value):
             await self._generate_image(
                 ctx,
                 prompt=prompt,
@@ -194,7 +194,7 @@ class Draw(feature.Feature):
             If this is not specified it will default to "standard".
 
         """
-        async with self.bot.presence(activity=_DrawPresence.DALL_E_2.value):
+        async with self.staff.presence(activity=_DrawPresence.DALL_E_2.value):
             await self._generate_image(
                 ctx,
                 prompt=prompt,
