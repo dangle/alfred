@@ -79,9 +79,8 @@ distribution = true
 
 [tool.pdm.scripts]
 pre_start = { shell = "bash -c '{pdm} install &> /dev/null'" }
-start = { cmd = "alfred", env_file = ".env" }
-pre_debug = { shell = "bash -c '{pdm} install &> /dev/null'" }
-debug = { cmd = "alfred", env = { LOG_LEVEL = "DEBUG" }, env_file = ".env" }
+start = { shell = "bash -c 'alfred |& jq --raw-input --raw-output \". as \\$j | try fromjson catch \\$j\"'", env_file = ".env" }
+debug = { cmd = "{pdm} start", env = { LOG_LEVEL = "DEBUG" } }
 pre_pdb = { shell = "bash -c '{pdm} install &> /dev/null'" }
 pdb = { cmd = "python -m pdb src/alfred/cli.py", env_file = ".env" }
 shell = "{pdm} run bpython"
