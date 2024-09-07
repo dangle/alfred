@@ -1,22 +1,18 @@
 """Contains the management interface for staff members."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import asyncio
-import os
 import typing
 import warnings
 from typing import Annotated
 
 import structlog
-import uvloop
 from tortoise import Tortoise, transactions
 
-from alfred.core import config
 from alfred.core import exceptions as exc
 from alfred.core import feature, fields, models
 from alfred.services import api
-from alfred.util import logging, translation
 from alfred.util.autofields import AutoFields
 from alfred.util.logging import Canonical
 from alfred.util.translation import gettext as _
@@ -163,35 +159,6 @@ class Manor(Canonical, AutoFields):
             "api": bool(self._api_task),
             "ephemeral": self.ephemeral,
         }
-
-    @staticmethod
-    def run(config_file: Path | str | None = None) -> int:
-        """Create a new 'Manor' and run it in an event loop and handle any errors.
-
-        Returns
-        -------
-        int
-            An exit code to use for command-line programs.
-
-        """
-        translation.bind()
-        logging.configure_logging()
-
-        log: structlog.stdlib.BoundLogger = structlog.get_logger()
-
-        try:
-            config.init(config_file)
-            uvloop.run(Manor(config_file).start())
-        except KeyboardInterrupt:
-            pass
-        except exc.BotError as e:
-            log.error(str(e))
-            return e.exit_code or os.EX_SOFTWARE
-        except Exception as e:
-            log.error(str(e), exc_info=e)
-            return os.EX_SOFTWARE
-
-        return os.EX_OK
 
     async def start(self) -> None:
         """Start the 'Manor', create the API, and initialize the database.
