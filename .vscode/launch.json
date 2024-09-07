@@ -5,10 +5,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python Debugger: Module",
+      "name": "Ephemeral Bot",
       "type": "debugpy",
       "request": "launch",
-      "module": "src.alfred.main"
+      "module": "src.alfred.cli",
+      "env": {
+        "LOG_LEVEL": "DEBUG",
+      }
     }
   ]
 }
