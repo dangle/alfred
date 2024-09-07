@@ -78,7 +78,7 @@ enable_incomplete_feature = ["NewGenericSyntax"]
 distribution = true
 
 [tool.pdm.scripts]
-pre_start = { shell = "bash -c '{pdm} install &> /dev/null'" }
+pre_start = { shell = "bash -c 'printf \"%s\n\n\" \"Installing commands into virtual environment...\" ; {pdm} install &> /dev/null'" }
 start = { shell = "bash -c 'alfred |& jq --raw-input --raw-output \". as \\$j | try fromjson catch \\$j\"'", env_file = ".env" }
 debug = { cmd = "{pdm} start", env = { LOG_LEVEL = "DEBUG" } }
 pre_pdb = { shell = "bash -c '{pdm} install &> /dev/null'" }
@@ -89,7 +89,7 @@ lint = "make lint"
 check-static = "make static-analysis"
 check-format = "make check-formatting"
 format = "make format"
-test = { shell = "make run-unit-tests" }
+test = "make run-unit-tests"
 
 extract-strings = "make extract-strings"
 new-translation = "make new-translation LOCALE=\"{args}\""
