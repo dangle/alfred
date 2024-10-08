@@ -7,25 +7,25 @@ requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "MIT" }
 dependencies = [
-    "py-cord[speed,voice]>=2.6.0",
-    "openai>=1.42.0",
+    "py-cord[speed,voice]>=2.6.1",
+    "openai>=1.51.1",
     "python-dotenv>=1.0.1",
     "structlog>=24.4.0",
-    "aiohttp[speedups]>=3.10.5",
+    "aiohttp[speedups]>=3.10.9",
     "pyyaml>=6.0.2",
     "tortoise-orm>=0.21.6",
     "aerich>=0.7.2",
-    "fastapi>=0.112.2",
+    "fastapi>=0.115.0",
     "hypercorn[uvloop]>=0.17.3",
     "async-lru>=2.0.4",
 ]
 
 [tool.pdm.dev-dependencies]
-dev = ["mypy>=1.11.0", "ruff>=0.5.0", "isort>=5.13.2", "black>=24.4.2"]
-docs = ["sphinx>=7.4.7", "sphinx-rtd-theme>=2.0.0"]
-test = ["pytest>=8.2.2"]
+dev = ["mypy>=1.11.2", "ruff>=0.6.9", "isort>=5.13.2", "black>=24.8.0"]
+docs = ["sphinx>=8.0.2", "sphinx-rtd-theme>=3.0.0"]
+test = ["pytest>=8.3.3"]
 tools = ["bpython>=0.24"]
-types = ["types-PyYAML>=6.0.12.20240311"]
+types = ["types-PyYAML>=6.0.12.20240917"]
 
 [project.scripts]
 alfred = "alfred.cli:main"
