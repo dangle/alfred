@@ -1,21 +1,22 @@
 {
   "name": "Alfred (Dev Container)",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "args": {
+      "PYTHON_VERSION": "3.12.7",
+      "PDM_VERSION": "2.19.2"
+    }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "fowardPorts": [2222],
+  "remoteUser": "vscode",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": true,
-      "configureZshAsDefaultShell": true,
-      "installOhMyZsh": true,
-      "installOhMyZshConfig": true,
       "upgradePackages": true,
       "nonFreePackages": true,
-      "username": "automatic",
-      "userUid": "automatic",
-      "userGid": "automatic"
+      "username": "vscode",
+      "userUid": "1000",
+      "userGid": "1000"
     },
     "ghcr.io/devcontainers/features/git:1": {
       "ppa": true,
@@ -24,11 +25,10 @@
     "ghcr.io/devcontainers/features/sshd:1": {
       "version": "latest"
     },
-    "ghcr.io/devcontainers/features/common-utils:2.1.1": {
-      "version": "latest",
-      "nonFreePackages": true
-    },
     "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
       "version": "latest"
     }
   },
